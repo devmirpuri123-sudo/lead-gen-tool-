@@ -42,3 +42,19 @@ Common failure modes:
 | `Missing environment variables: MAGIC_API_KEY` | Var not exported in the shell that launched Claude Code |
 | `-32001 Not authenticated` | Key is set but invalid or reset — get a fresh one |
 | `Pending approval` | Run `claude` interactively and approve the server |
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) validates `.mcp.json` on
+every push to `main` and every pull request. It checks that the file parses,
+that each server declares a `command` or `url`, that credential-shaped env keys
+hold a `${VAR}` reference rather than a literal secret, and that no env value
+contains non-ASCII characters — which is how a truncated or mis-pasted key
+sneaks in and fails later with an opaque transport error.
+
+Run the same check locally:
+
+```bash
+python3 .github/scripts/validate_mcp_config.py
+```
+
