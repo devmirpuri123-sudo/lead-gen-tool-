@@ -42,7 +42,21 @@ export function statusBadgeClass(status: string): string {
   return "bg-violet-100 text-violet-800 border-violet-200"; // Nurture, Not a fit, Closed
 }
 
-/** Company types we target, most valuable first. */
-export const COMPANY_TYPES = ["distributor", "wholesaler", "importer", "retailer", "other"] as const;
+/** Business types we target (from the Export Lead Enrichment workbook LISTS
+ *  sheet), most valuable first. Stored lowercase. */
+export const COMPANY_TYPES = [
+  "importer",
+  "distributor",
+  "wholesaler",
+  "retail chain",
+  "supermarket group",
+  "cash & carry",
+  "buying house / sourcing agent",
+  "e-commerce",
+  "agent / broker",
+  "manufacturer (complementary range)",
+  "retailer",
+  "other",
+] as const;
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

@@ -55,11 +55,49 @@ CREATE TABLE IF NOT EXISTS companies (
   name TEXT NOT NULL,
   name_normalised TEXT NOT NULL,
   website TEXT,
-  company_type TEXT, -- wholesaler / distributor / retailer / importer / other
+  company_type TEXT, -- business type: importer / distributor / wholesaler / retail chain / …
   description TEXT,
   status TEXT NOT NULL DEFAULT 'New',
   confidence TEXT NOT NULL DEFAULT 'Unverified — requires human review',
   notes TEXT,
+  -- Enrichment fields (SACVIN Export Lead Enrichment workbook, LEAD MASTER).
+  -- NULL always means "Unknown — requires research".
+  external_ref TEXT,             -- workbook Lead ID, e.g. SAC/LEAD/0001
+  record_status TEXT,            -- New / Enriching / Enriched / Verified / Qualified / …
+  added_by TEXT,
+  region TEXT,
+  city TEXT,
+  product_categories TEXT,
+  category_match TEXT,           -- Core / Partial / None
+  own_brand TEXT,
+  year_established TEXT,
+  employees_band TEXT,
+  est_annual_revenue_usd REAL,
+  company_size TEXT,             -- Large / Medium / Small / Unknown
+  outlets TEXT,
+  linkedin_company_url TEXT,
+  imports_flag TEXT,             -- Yes / No / Unknown
+  hs_codes TEXT,
+  source_countries TEXT,
+  competing_origin TEXT,         -- Yes / Partly / No / Unknown
+  known_suppliers TEXT,
+  import_volume_ctnrs_yr REAL,
+  import_value_usd_yr REAL,
+  container_type TEXT,
+  import_frequency TEXT,
+  last_known_shipment TEXT,
+  displacement_opportunity TEXT, -- High / Medium / Low / Unknown
+  import_data_source TEXT,
+  discharge_port TEXT,
+  preferential_access TEXT,
+  compliance_certs TEXT,
+  language TEXT,
+  priority_products TEXT,
+  est_opportunity_usd REAL,
+  lead_source_tool TEXT,
+  date_pulled TEXT,
+  verified_by TEXT,
+  verification_date TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -75,6 +113,17 @@ CREATE TABLE IF NOT EXISTS contacts (
   country TEXT,
   confidence TEXT NOT NULL DEFAULT 'Unverified — requires human review',
   notes TEXT,
+  -- Enrichment fields (workbook CONTACTS / LEAD MASTER group 5).
+  external_ref TEXT,      -- workbook Contact ID, e.g. SAC/CON/0001
+  contact_function TEXT,  -- MD / CEO, Category buyer, …
+  decision_role TEXT,     -- Decision maker / Influencer / Gatekeeper / Unknown
+  email_status TEXT,      -- Valid / Risky / catch-all / Invalid / Not verified
+  whatsapp TEXT,
+  language TEXT,
+  best_time_to_call TEXT,
+  source_tool TEXT,       -- Apollo / LinkedIn Sales Navigator / …
+  date_pulled TEXT,
+  verified_flag TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

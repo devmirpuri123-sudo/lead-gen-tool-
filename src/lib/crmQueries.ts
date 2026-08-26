@@ -12,6 +12,42 @@ export interface Company {
   status: string;
   confidence: string;
   notes: string | null;
+  external_ref: string | null;
+  record_status: string | null;
+  added_by: string | null;
+  region: string | null;
+  city: string | null;
+  product_categories: string | null;
+  category_match: string | null;
+  own_brand: string | null;
+  year_established: string | null;
+  employees_band: string | null;
+  est_annual_revenue_usd: number | null;
+  company_size: string | null;
+  outlets: string | null;
+  linkedin_company_url: string | null;
+  imports_flag: string | null;
+  hs_codes: string | null;
+  source_countries: string | null;
+  competing_origin: string | null;
+  known_suppliers: string | null;
+  import_volume_ctnrs_yr: number | null;
+  import_value_usd_yr: number | null;
+  container_type: string | null;
+  import_frequency: string | null;
+  last_known_shipment: string | null;
+  displacement_opportunity: string | null;
+  import_data_source: string | null;
+  discharge_port: string | null;
+  preferential_access: string | null;
+  compliance_certs: string | null;
+  language: string | null;
+  priority_products: string | null;
+  est_opportunity_usd: number | null;
+  lead_source_tool: string | null;
+  date_pulled: string | null;
+  verified_by: string | null;
+  verification_date: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,6 +70,16 @@ export interface Contact {
   country: string | null;
   confidence: string;
   notes: string | null;
+  external_ref: string | null;
+  contact_function: string | null;
+  decision_role: string | null;
+  email_status: string | null;
+  whatsapp: string | null;
+  language: string | null;
+  best_time_to_call: string | null;
+  source_tool: string | null;
+  date_pulled: string | null;
+  verified_flag: string | null;
   created_at: string;
 }
 
@@ -57,11 +103,30 @@ export interface LeadListRow extends Lead {
   company_type: string | null;
   website: string | null;
   description: string | null;
+  imports_flag: string | null;
+  competing_origin: string | null;
+  company_size: string | null;
+  category_match: string | null;
   contact_name: string | null;
   contact_email: string | null;
+  contact_role: string | null;
+  contact_phone: string | null;
+  email_status: string | null;
+  decision_role: string | null;
   market_country: string | null;
   market_tier: string | null;
 }
+
+const LEAD_SELECT = `
+  SELECT l.*, c.name company_name, c.company_type, c.website, c.description,
+         c.imports_flag, c.competing_origin, c.company_size, c.category_match,
+         ct.full_name contact_name, ct.email contact_email, ct.role_title contact_role,
+         ct.phone contact_phone, ct.email_status, ct.decision_role,
+         m.country market_country, m.priority_tier market_tier
+  FROM leads l
+  LEFT JOIN companies c ON c.id = l.company_id
+  LEFT JOIN contacts ct ON ct.id = l.contact_id
+  LEFT JOIN markets m ON m.id = l.market_id`;
 
 export interface Activity {
   id: number;
@@ -118,16 +183,7 @@ export function listCompanyContacts(companyId: number): Contact[] {
 
 export function listCompanyLeads(companyId: number): LeadListRow[] {
   return getDb()
-    .prepare(
-      `SELECT l.*, c.name company_name, c.company_type, c.website, c.description,
-              ct.full_name contact_name, ct.email contact_email,
-              m.country market_country, m.priority_tier market_tier
-       FROM leads l
-       LEFT JOIN companies c ON c.id = l.company_id
-       LEFT JOIN contacts ct ON ct.id = l.contact_id
-       LEFT JOIN markets m ON m.id = l.market_id
-       WHERE l.company_id = ? ORDER BY l.updated_at DESC`
-    )
+    .prepare(`${LEAD_SELECT} WHERE l.company_id = ? ORDER BY l.updated_at DESC`)
     .all(companyId) as LeadListRow[];
 }
 
@@ -148,33 +204,11 @@ export function listLeads(f: { q?: string; status?: string; owner?: string }): L
     params.owner = f.owner;
   }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  return db
-    .prepare(
-      `SELECT l.*, c.name company_name, c.company_type, c.website, c.description,
-              ct.full_name contact_name, ct.email contact_email,
-              m.country market_country, m.priority_tier market_tier
-       FROM leads l
-       LEFT JOIN companies c ON c.id = l.company_id
-       LEFT JOIN contacts ct ON ct.id = l.contact_id
-       LEFT JOIN markets m ON m.id = l.market_id
-       ${where} ORDER BY l.updated_at DESC`
-    )
-    .all(params) as LeadListRow[];
+  return db.prepare(`${LEAD_SELECT} ${where} ORDER BY l.updated_at DESC`).all(params) as LeadListRow[];
 }
 
 export function getLead(id: number): LeadListRow | undefined {
-  return getDb()
-    .prepare(
-      `SELECT l.*, c.name company_name, c.company_type, c.website, c.description,
-              ct.full_name contact_name, ct.email contact_email,
-              m.country market_country, m.priority_tier market_tier
-       FROM leads l
-       LEFT JOIN companies c ON c.id = l.company_id
-       LEFT JOIN contacts ct ON ct.id = l.contact_id
-       LEFT JOIN markets m ON m.id = l.market_id
-       WHERE l.id = ?`
-    )
-    .get(id) as LeadListRow | undefined;
+  return getDb().prepare(`${LEAD_SELECT} WHERE l.id = ?`).get(id) as LeadListRow | undefined;
 }
 
 export function listLeadActivities(leadId: number): Activity[] {

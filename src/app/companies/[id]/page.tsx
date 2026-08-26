@@ -4,9 +4,21 @@ import { getCompany, listCompanyContacts, listCompanyLeads, listMarketOptions, g
 import { getScorerNames } from "@/lib/queries";
 import { updateCompany, createContact, createLead } from "@/lib/crmActions";
 import { COMPANY_TYPES, statusBadgeClass } from "@/lib/pipeline";
-import { tierBadgeClass } from "@/lib/format";
+import { tierBadgeClass, fmtUsd } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+function Info({ label, value }: { label: string; value: string | number | null }) {
+  const empty = value === null || value === undefined || value === "";
+  return (
+    <div className="py-1 border-b border-slate-100 last:border-0 flex justify-between gap-3 text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className={`text-right ${empty ? "italic text-amber-600" : "text-slate-900"}`}>
+        {empty ? "Unknown — requires research" : String(value)}
+      </span>
+    </div>
+  );
+}
 
 function Check({ ok, label, hint }: { ok: boolean; label: string; hint: string }) {
   return (
@@ -125,12 +137,15 @@ export default async function CompanyPage({
             </p>
             <ul className="space-y-1.5">
               <Check ok={!!company.market_country} label="Country / market linked" hint="which country is this company in?" />
-              <Check ok={!!company.company_type} label="Company type confirmed" hint="distributor, wholesaler, importer, retailer?" />
+              <Check ok={!!company.company_type} label="Business type confirmed" hint="importer, distributor, wholesaler, retail chain…?" />
               <Check ok={!!company.website} label="Website found" hint="find and verify their site" />
-              <Check ok={!!company.description} label="What they do, described" hint="from their site or a trade directory" />
+              <Check ok={!!company.category_match} label="Category match assessed" hint="Core / Partial / None vs SACVIN's range" />
+              <Check ok={!!company.company_size} label="Company size estimated" hint="Large / Medium / Small, with the basis noted" />
+              <Check ok={!!company.imports_flag} label="Imports? established" hint="do they already import — licence, finance, habit?" />
+              <Check ok={!!company.competing_origin} label="Competing-origin sourcing checked" hint="China/India/Thailand/Turkey/Vietnam — the displacement story" />
               <Check ok={contacts.length > 0} label="At least one named contact" hint="who do we talk to?" />
-              <Check ok={hasEmail} label="A contact email on file" hint="from their website or a reply — never guessed" />
-              <Check ok={!!company.notes} label="Sources noted" hint="record where the information came from" />
+              <Check ok={hasEmail} label="A contact email on file" hint="from a real source — never guessed" />
+              <Check ok={!!company.notes || !!company.import_data_source} label="Sources noted" hint="record where the information came from" />
             </ul>
           </section>
 
@@ -174,6 +189,58 @@ export default async function CompanyPage({
         </div>
       </div>
 
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <section className="bg-white rounded-lg border border-slate-200 p-4">
+          <h2 className="font-semibold mb-2">Company profile (enrichment)</h2>
+          <Info label="Workbook Lead ID" value={company.external_ref} />
+          <Info label="Record status" value={company.record_status} />
+          <Info label="Region / City" value={[company.region, company.city].filter(Boolean).join(" · ") || null} />
+          <Info label="Product categories" value={company.product_categories} />
+          <Info label="Category match" value={company.category_match} />
+          <Info label="Own brand / private label" value={company.own_brand} />
+          <Info label="Year established" value={company.year_established} />
+          <Info label="Employees" value={company.employees_band} />
+          <Info label="Est. annual revenue (USD)" value={company.est_annual_revenue_usd !== null ? fmtUsd(company.est_annual_revenue_usd) : null} />
+          <Info label="Company size" value={company.company_size} />
+          <Info label="Outlets / branches" value={company.outlets} />
+          <Info label="LinkedIn (company)" value={company.linkedin_company_url} />
+        </section>
+
+        <section className="bg-white rounded-lg border border-slate-200 p-4">
+          <h2 className="font-semibold mb-2">Import intelligence</h2>
+          <Info label="Imports?" value={company.imports_flag} />
+          <Info label="HS codes handled" value={company.hs_codes} />
+          <Info label="Current source countries" value={company.source_countries} />
+          <Info label="Competing origin sourced?" value={company.competing_origin} />
+          <Info label="Known current suppliers" value={company.known_suppliers} />
+          <Info label="Est. import volume (containers/yr)" value={company.import_volume_ctnrs_yr} />
+          <Info label="Est. import value (USD/yr)" value={company.import_value_usd_yr !== null ? fmtUsd(company.import_value_usd_yr) : null} />
+          <Info label="Typical container type" value={company.container_type} />
+          <Info label="Import frequency" value={company.import_frequency} />
+          <Info label="Last known shipment" value={company.last_known_shipment} />
+          <Info label="Displacement opportunity" value={company.displacement_opportunity} />
+          <Info label="Import data source" value={company.import_data_source} />
+        </section>
+
+        <section className="bg-white rounded-lg border border-slate-200 p-4">
+          <h2 className="font-semibold mb-2">Commercial fit &amp; data quality</h2>
+          <Info label="Nearest discharge port" value={company.discharge_port} />
+          <Info label="Preferential access" value={company.preferential_access} />
+          <Info label="Compliance / certification" value={company.compliance_certs} />
+          <Info label="Business language" value={company.language} />
+          <Info label="Priority SACVIN products" value={company.priority_products} />
+          <Info label="Est. opportunity (USD/yr)" value={company.est_opportunity_usd !== null ? fmtUsd(company.est_opportunity_usd) : null} />
+          <Info label="Lead source tool" value={company.lead_source_tool} />
+          <Info label="Date pulled" value={company.date_pulled} />
+          <Info label="Added by" value={company.added_by} />
+          <Info label="Verified by / when" value={company.verified_by ? `${company.verified_by} · ${company.verification_date ?? "date unknown"}` : null} />
+          <p className="text-xs text-slate-400 mt-2">
+            These fields come from the Export Lead Enrichment workbook (or future in-app research).
+            Data pulled more than six months ago should be re-verified before use.
+          </p>
+        </section>
+      </div>
+
       <section className="bg-white rounded-lg border border-slate-200 p-4">
         <h2 className="font-semibold mb-2">Contacts ({contacts.length})</h2>
         {contacts.length > 0 && (
@@ -183,10 +250,12 @@ export default async function CompanyPage({
                 <tr className="text-left text-slate-500 border-b border-slate-200">
                   <th className="py-1.5 pr-3 font-medium">Name</th>
                   <th className="py-1.5 pr-3 font-medium">Role</th>
+                  <th className="py-1.5 pr-3 font-medium">Decision role</th>
                   <th className="py-1.5 pr-3 font-medium">Email</th>
-                  <th className="py-1.5 pr-3 font-medium">Phone</th>
+                  <th className="py-1.5 pr-3 font-medium">Email status</th>
+                  <th className="py-1.5 pr-3 font-medium">Phone / WhatsApp</th>
                   <th className="py-1.5 pr-3 font-medium">LinkedIn (manual only)</th>
-                  <th className="py-1.5 font-medium">Confidence</th>
+                  <th className="py-1.5 font-medium">Source</th>
                 </tr>
               </thead>
               <tbody>
@@ -194,10 +263,20 @@ export default async function CompanyPage({
                   <tr key={c.id} className="border-b border-slate-100 last:border-0">
                     <td className="py-1.5 pr-3 font-medium">{c.full_name}</td>
                     <td className="py-1.5 pr-3">{c.role_title ?? <span className="italic text-amber-600">Unknown</span>}</td>
+                    <td className="py-1.5 pr-3">{c.decision_role ?? "—"}</td>
                     <td className="py-1.5 pr-3">{c.email ?? <span className="italic text-amber-600">Unknown — requires research</span>}</td>
-                    <td className="py-1.5 pr-3">{c.phone ?? "—"}</td>
+                    <td className="py-1.5 pr-3">
+                      {c.email_status ? (
+                        <span className={`text-xs rounded px-1.5 py-0.5 ${c.email_status.toLowerCase() === "valid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                          {c.email_status}
+                        </span>
+                      ) : c.email ? (
+                        <span className="text-xs text-amber-600 italic">not verified</span>
+                      ) : "—"}
+                    </td>
+                    <td className="py-1.5 pr-3">{[c.phone, c.whatsapp].filter(Boolean).join(" / ") || "—"}</td>
                     <td className="py-1.5 pr-3">{c.linkedin_url ?? "—"}</td>
-                    <td className="py-1.5 text-xs text-slate-500">{c.confidence.split(" — ")[0]}</td>
+                    <td className="py-1.5 text-xs text-slate-500">{c.source_tool ?? c.confidence.split(" — ")[0]}</td>
                   </tr>
                 ))}
               </tbody>

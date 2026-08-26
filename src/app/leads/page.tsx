@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { listLeads, leadStatusCounts, listLeadOwners } from "@/lib/crmQueries";
-import { scoreLead } from "@/lib/leadScoring";
+import { scoreLead, scoringInputFromLead, icpTierBadgeClass } from "@/lib/leadScoring";
 import { LEAD_STATUSES, STATUS_STAGES, statusBadgeClass } from "@/lib/pipeline";
 
 export const dynamic = "force-dynamic";
@@ -83,17 +83,7 @@ export default async function LeadsPage({
           </thead>
           <tbody>
             {leads.map((l) => {
-              const s = scoreLead({
-                company_name: l.company_name ?? "This lead",
-                company_type: l.company_type,
-                website: l.website,
-                description: l.description,
-                contact_name: l.contact_name,
-                contact_email: l.contact_email,
-                market_country: l.market_country,
-                market_tier: l.market_tier,
-                status: l.status,
-              });
+              const s = scoreLead(scoringInputFromLead(l));
               return (
                 <tr key={l.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                   <td className="py-1.5 px-3">
@@ -105,7 +95,10 @@ export default async function LeadsPage({
                   <td className="py-1.5 px-3">
                     <span className={`inline-block text-xs border rounded-full px-2 py-0.5 ${statusBadgeClass(l.status)}`}>{l.status}</span>
                   </td>
-                  <td className="py-1.5 px-3 text-right tabular-nums">{s.score}/100</td>
+                  <td className="py-1.5 px-3 text-right tabular-nums">
+                    <span className={`inline-block text-xs border rounded-full px-1.5 py-0.5 mr-1.5 ${icpTierBadgeClass(s.tier)}`}>{s.tier}</span>
+                    {s.score}/100
+                  </td>
                   <td className="py-1.5 px-3">{l.owner ?? "—"}</td>
                   <td className="py-1.5 px-3 text-xs text-slate-500">{l.updated_at.slice(0, 10)}</td>
                 </tr>

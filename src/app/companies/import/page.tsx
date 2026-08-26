@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { importCompaniesCsv } from "@/lib/crmActions";
+import { importEnrichmentXlsx } from "@/lib/enrichmentImport";
 import { listImportReports } from "@/lib/crmQueries";
 import { getScorerNames } from "@/lib/queries";
 
@@ -66,7 +67,34 @@ export default async function ImportPage({
       {saved && <p className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded px-3 py-2">{saved}</p>}
       {error && <p className="text-sm bg-rose-50 border border-rose-200 text-rose-800 rounded px-3 py-2">{error}</p>}
 
+      <form action={importEnrichmentXlsx} className="bg-white rounded-lg border-2 border-emerald-200 p-4 space-y-3 text-sm">
+        <h2 className="font-semibold">Import the SACVIN Export Lead Enrichment workbook (.xlsx)</h2>
+        <p className="text-xs text-slate-500">
+          Upload the team's enrichment workbook directly. The importer reads the <strong>LEAD
+          MASTER</strong> sheet (one company per row, all 7 field groups), the <strong>CONTACTS</strong>{" "}
+          sheet (extra people per company), and loads the ICP scoring model from the{" "}
+          <strong>SCORING</strong> sheet. The three shipped worked-example rows (Kenmart / Gulf Home /
+          Suva) are recognised and skipped; duplicates against the database are skipped and reported.
+        </p>
+        <label className="block">
+          <span className="text-slate-600">Workbook file (.xlsx)</span>
+          <input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required className="mt-1 block w-full text-sm" />
+        </label>
+        <div className="grid sm:grid-cols-2 gap-3 items-end">
+          <label className="block">
+            <span className="text-slate-600">Your name (required)</span>
+            <input name="entered_by" list="people" maxLength={60} className="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" />
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="create_leads" defaultChecked />
+            <span>Create a lead (status "Imported") for each new company</span>
+          </label>
+        </div>
+        <button type="submit" className="bg-emerald-600 text-white rounded px-4 py-2 hover:bg-emerald-700">Import workbook</button>
+      </form>
+
       <form action={importCompaniesCsv} className="bg-white rounded-lg border border-slate-200 p-4 space-y-3 text-sm">
+        <h2 className="font-semibold">Or import a simple CSV</h2>
         <label className="block">
           <span className="text-slate-600">CSV file (first row must be column headers)</span>
           <input type="file" name="file" accept=".csv,text/csv" required className="mt-1 block w-full text-sm" />

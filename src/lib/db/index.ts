@@ -27,6 +27,24 @@ function migrate(db: Database.Database) {
   for (const col of ["template_key", "created_by", "approved_by", "approved_at", "sent_by", "sent_at"]) {
     if (!draftCols.includes(col)) db.exec(`ALTER TABLE outreach_drafts ADD COLUMN ${col} TEXT`);
   }
+  // Enrichment fields (SACVIN Export Lead Enrichment workbook).
+  const companyCols = (db.prepare(`PRAGMA table_info(companies)`).all() as { name: string }[]).map((c) => c.name);
+  const companyReal = ["est_annual_revenue_usd", "import_volume_ctnrs_yr", "import_value_usd_yr", "est_opportunity_usd"];
+  const companyText = [
+    "external_ref", "record_status", "added_by", "region", "city", "product_categories",
+    "category_match", "own_brand", "year_established", "employees_band", "company_size",
+    "outlets", "linkedin_company_url", "imports_flag", "hs_codes", "source_countries",
+    "competing_origin", "known_suppliers", "container_type", "import_frequency",
+    "last_known_shipment", "displacement_opportunity", "import_data_source", "discharge_port",
+    "preferential_access", "compliance_certs", "language", "priority_products",
+    "lead_source_tool", "date_pulled", "verified_by", "verification_date",
+  ];
+  for (const col of companyText) if (!companyCols.includes(col)) db.exec(`ALTER TABLE companies ADD COLUMN ${col} TEXT`);
+  for (const col of companyReal) if (!companyCols.includes(col)) db.exec(`ALTER TABLE companies ADD COLUMN ${col} REAL`);
+  const contactCols = (db.prepare(`PRAGMA table_info(contacts)`).all() as { name: string }[]).map((c) => c.name);
+  for (const col of ["external_ref", "contact_function", "decision_role", "email_status", "whatsapp", "language", "best_time_to_call", "source_tool", "date_pulled", "verified_flag"]) {
+    if (!contactCols.includes(col)) db.exec(`ALTER TABLE contacts ADD COLUMN ${col} TEXT`);
+  }
 }
 
 export const UNKNOWN_LABEL = "Unknown — requires research";

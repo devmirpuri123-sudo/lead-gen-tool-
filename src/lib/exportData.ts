@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
 import { listLeads } from "@/lib/crmQueries";
-import { scoreLead } from "@/lib/leadScoring";
+import { scoreLead, scoringInputFromLead } from "@/lib/leadScoring";
 
 /** Row builders for exports. Each returns plain objects whose keys become the
  *  header row. Blank cells mean "Unknown — requires research" — we export the
@@ -28,8 +28,15 @@ export function exportRows(entity: ExportEntity): Record<string, string | number
     case "companies":
       return db
         .prepare(
-          `SELECT c.name, c.company_type, m.country market_country, c.website, c.description,
-                  c.status, c.notes, c.confidence,
+          `SELECT c.external_ref lead_id, c.name, c.company_type, m.country market_country, c.region, c.city,
+                  c.website, c.description, c.product_categories, c.category_match, c.own_brand,
+                  c.year_established, c.employees_band, c.est_annual_revenue_usd, c.company_size, c.outlets,
+                  c.linkedin_company_url, c.imports_flag, c.hs_codes, c.source_countries, c.competing_origin,
+                  c.known_suppliers, c.import_volume_ctnrs_yr, c.import_value_usd_yr, c.container_type,
+                  c.import_frequency, c.last_known_shipment, c.displacement_opportunity, c.import_data_source,
+                  c.discharge_port, c.preferential_access, c.compliance_certs, c.language, c.priority_products,
+                  c.est_opportunity_usd, c.record_status, c.added_by, c.lead_source_tool, c.date_pulled,
+                  c.verified_by, c.verification_date, c.status, c.notes, c.confidence,
                   (SELECT COUNT(*) FROM contacts ct WHERE ct.company_id = c.id) contact_count,
                   (SELECT COUNT(*) FROM leads l WHERE l.company_id = c.id) lead_count,
                   c.created_at, c.updated_at
@@ -39,7 +46,9 @@ export function exportRows(entity: ExportEntity): Record<string, string | number
     case "contacts":
       return db
         .prepare(
-          `SELECT ct.full_name, ct.role_title, ct.email, ct.phone, ct.linkedin_url,
+          `SELECT ct.external_ref contact_id, ct.full_name, ct.role_title, ct.contact_function, ct.decision_role,
+                  ct.email, ct.email_status, ct.phone, ct.whatsapp, ct.linkedin_url, ct.language,
+                  ct.best_time_to_call, ct.source_tool, ct.date_pulled, ct.verified_flag,
                   c.name company_name, m.country market_country, ct.confidence, ct.notes, ct.created_at
            FROM contacts ct
            LEFT JOIN companies c ON c.id = ct.company_id
@@ -49,17 +58,7 @@ export function exportRows(entity: ExportEntity): Record<string, string | number
         .all() as Record<string, string | number | null>[];
     case "leads":
       return listLeads({}).map((l) => {
-        const s = scoreLead({
-          company_name: l.company_name ?? `Lead #${l.id}`,
-          company_type: l.company_type,
-          website: l.website,
-          description: l.description,
-          contact_name: l.contact_name,
-          contact_email: l.contact_email,
-          market_country: l.market_country,
-          market_tier: l.market_tier,
-          status: l.status,
-        });
+        const s = scoreLead(scoringInputFromLead(l));
         return {
           lead_id: l.id,
           company: l.company_name,
@@ -69,7 +68,10 @@ export function exportRows(entity: ExportEntity): Record<string, string | number
           contact_email: l.contact_email,
           status: l.status,
           owner: l.owner,
-          lead_score_0_100: s.score,
+          next_action: l.next_action,
+          icp_fit_score_0_100: s.score,
+          icp_tier: s.tier,
+          data_completeness_pct: Math.round(s.completeness * 100),
           score_breakdown: s.components.map((c) => `${c.label} ${c.points}/${c.max}`).join("; "),
           created_at: l.created_at,
           updated_at: l.updated_at,
