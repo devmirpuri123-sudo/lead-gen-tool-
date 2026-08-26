@@ -1,0 +1,28 @@
+{
+  "name": "sacvin-global-plastics-lead-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SACVIN GLOBAL PLASTICS LEAD ENGINE — internal semi-automated lead-generation system for SACVIN Nigeria Limited and Veeglow Engineering Solutions",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "import:workbook": "node scripts/import-workbook.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "next": "^15.5.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.8.0"
+  }
+}
