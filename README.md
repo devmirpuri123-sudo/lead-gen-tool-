@@ -53,6 +53,33 @@ workbook in `data/source/` is read-only and is never modified.
   (must total 100%) and the three tier cut-offs (must descend). Saving
   recalculates all 195 markets instantly and logs the change history.
 
+- **Companies** (`/companies`): list with search/filters, manual entry form
+  (`/companies/new`), CSV import (`/companies/import`), and a detail page with
+  editable fields, contacts, leads, a research checklist and provenance.
+- **Leads** (`/leads`): the 16-status pipeline board, filterable list with live
+  0–100 lead scores, and a detail page (`/leads/[id]`) with the pipeline
+  position, a fully explained score, status changes, notes and an activity log.
+
+### Companies, contacts & leads (Phase 3)
+
+- Manual entry only records what you actually researched; blank fields display
+  as "Unknown — requires research" and are never guessed.
+- Duplicate detection: an identical name or website domain blocks creation
+  (override checkbox available); similar names ignoring suffixes like
+  Ltd/Trading/Group are flagged as possible duplicates. CSV imports skip exact
+  duplicates (in-file and against the database) and flag possible ones.
+- CSV import (`/companies/import`) cleans rows, validates emails, matches
+  countries against the market list, reports every skipped/flagged row, stores
+  the report for later review, and records file + row number provenance for
+  every value. Optionally creates an "Imported" lead per company.
+- Lead scoring is transparent: Market attractiveness (0–40, from the market's
+  priority tier) + Partner-type fit (0–30) + Research completeness (0–30),
+  with a plain-English explanation naming every missing input. A low score
+  from missing data is labelled as such, not treated as a verdict.
+- Every status change and note is logged in the activity trail with who/when.
+  "Do not contact" is respected: the score panel says outreach may not be
+  drafted for such leads.
+
 ### Who/when audit trail (Phase 2)
 
 Every manually entered score and every configuration change requires a name and
@@ -77,8 +104,9 @@ over an older app entry only for that cell.
 
 - **Phase 2** — ✅ done: scoring workspace, validation, weighted scores and
   tiers, plain-English explanations, scoring configuration, who/when audit.
-- **Phase 3** — companies, contacts and leads: CSV import, duplicate detection,
-  the 16-status pipeline, lead scoring.
+- **Phase 3** — ✅ done: companies, contacts and leads, CSV import, duplicate
+  detection, the 16-status pipeline, transparent lead scoring, research
+  checklists.
 - **Phase 4** — outreach workspace: human-reviewed email/LinkedIn drafts (never
   auto-sent), follow-up reminders, next-action recommendations.
 - **Phase 5** — reporting: weekly report, data-quality and duplicate reports,
