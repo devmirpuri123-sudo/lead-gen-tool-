@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS markets (
   competition_score REAL,
   weighted_score REAL,
   priority_tier TEXT NOT NULL DEFAULT 'Not scored',
+  scored_by TEXT,
+  scored_at TEXT,
   confidence TEXT NOT NULL DEFAULT 'Unverified — requires human review',
   last_reviewed_at TEXT,
   source_row_ref TEXT,

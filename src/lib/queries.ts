@@ -33,6 +33,8 @@ export interface Market {
   competition_score: number | null;
   weighted_score: number | null;
   priority_tier: string;
+  scored_by: string | null;
+  scored_at: string | null;
   confidence: string;
   last_reviewed_at: string | null;
   source_row_ref: string | null;
@@ -131,6 +133,50 @@ export function getFilterOptions() {
     incomes: col(`SELECT DISTINCT income_tier v FROM markets WHERE income_tier IS NOT NULL ORDER BY income_tier`),
     owners: col(`SELECT DISTINCT assigned_owner v FROM markets WHERE assigned_owner IS NOT NULL ORDER BY assigned_owner`),
   };
+}
+
+/** Names offered in the "scored by" box: assigned owners plus anyone who has scored before. */
+export function getScorerNames(): string[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT assigned_owner v FROM markets WHERE assigned_owner IS NOT NULL
+       UNION SELECT DISTINCT scored_by FROM markets WHERE scored_by IS NOT NULL ORDER BY v`
+    )
+    .all() as { v: string }[];
+  return rows.map((r) => r.v);
+}
+
+export function getScoringProgress() {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT COUNT(*) total,
+              SUM(CASE WHEN weighted_score IS NOT NULL THEN 1 ELSE 0 END) scored,
+              SUM(CASE WHEN weighted_score IS NULL AND (market_size_score IS NOT NULL OR access_ease_score IS NOT NULL OR competition_score IS NOT NULL) THEN 1 ELSE 0 END) partial
+       FROM markets`
+    )
+    .get() as { total: number; scored: number; partial: number };
+}
+
+export function getNextUnscoredMarketId(): number | null {
+  const row = getDb()
+    .prepare(
+      `SELECT id FROM markets WHERE weighted_score IS NULL
+       ORDER BY (CASE diaspora_priority WHEN 'High' THEN 0 WHEN 'Home' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END), population DESC
+       LIMIT 1`
+    )
+    .get() as { id: number } | undefined;
+  return row?.id ?? null;
+}
+
+export function getConfigChangeLog(limit = 20): ProvenanceRow[] {
+  return getDb()
+    .prepare(
+      `SELECT * FROM research_sources WHERE entity_type = 'scoring_config' AND method = 'manual'
+       ORDER BY id DESC LIMIT ?`
+    )
+    .all(limit) as ProvenanceRow[];
 }
 
 export function getDashboardStats() {

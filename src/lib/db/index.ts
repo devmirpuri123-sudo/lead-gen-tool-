@@ -14,7 +14,15 @@ export function getDb(): Database.Database {
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.exec(fs.readFileSync(SCHEMA_PATH, "utf8"));
+  migrate(db);
   return db;
+}
+
+// Additive migrations for databases created before a column existed.
+function migrate(db: Database.Database) {
+  const cols = (db.prepare(`PRAGMA table_info(markets)`).all() as { name: string }[]).map((c) => c.name);
+  if (!cols.includes("scored_by")) db.exec(`ALTER TABLE markets ADD COLUMN scored_by TEXT`);
+  if (!cols.includes("scored_at")) db.exec(`ALTER TABLE markets ADD COLUMN scored_at TEXT`);
 }
 
 export const UNKNOWN_LABEL = "Unknown — requires research";

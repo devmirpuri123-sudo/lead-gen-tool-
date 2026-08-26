@@ -163,6 +163,24 @@ const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 db.exec(fs.readFileSync(SCHEMA_PATH, "utf8"));
+// Same additive migration as src/lib/db/index.ts, for databases created before Phase 2.
+{
+  const cols = db.prepare(`PRAGMA table_info(markets)`).all().map((c) => c.name);
+  if (!cols.includes("scored_by")) db.exec(`ALTER TABLE markets ADD COLUMN scored_by TEXT`);
+  if (!cols.includes("scored_at")) db.exec(`ALTER TABLE markets ADD COLUMN scored_at TEXT`);
+}
+
+// Manually entered scores must survive a re-import: capture them before the
+// markets table is cleared, keyed by country name.
+const preservedScores = new Map(
+  db.prepare(
+    `SELECT country, market_size_score, access_ease_score, competition_score,
+            scored_by, scored_at, last_reviewed_at
+     FROM markets
+     WHERE market_size_score IS NOT NULL OR access_ease_score IS NOT NULL
+        OR competition_score IS NOT NULL`
+  ).all().map((r) => [r.country, r])
+);
 
 const importedAt = new Date().toISOString();
 
@@ -175,7 +193,8 @@ const insertMarket = db.prepare(`
     trade_bloc, business_language, notes, existing_buyer, import_duty_pct_text,
     est_annual_import_value_usd, local_competition, distributor_status, assigned_owner,
     market_size_score, access_ease_score, diaspora_fit_score, competition_score,
-    weighted_score, priority_tier, confidence, source_row_ref, created_at, updated_at
+    weighted_score, priority_tier, scored_by, scored_at, last_reviewed_at,
+    confidence, source_row_ref, created_at, updated_at
   ) VALUES (
     @country, @country_normalised, @continent, @sub_region, @population, @population_band,
     @gdp_nominal_usd, @gdp_per_capita_usd, @income_tier, @diaspora_flag,
@@ -184,7 +203,8 @@ const insertMarket = db.prepare(`
     @trade_bloc, @business_language, @notes, @existing_buyer, @import_duty_pct_text,
     @est_annual_import_value_usd, @local_competition, @distributor_status, @assigned_owner,
     @market_size_score, @access_ease_score, @diaspora_fit_score, @competition_score,
-    @weighted_score, @priority_tier, @confidence, @source_row_ref, @now, @now
+    @weighted_score, @priority_tier, @scored_by, @scored_at, @last_reviewed_at,
+    @confidence, @source_row_ref, @now, @now
   )
 `);
 
@@ -212,6 +232,7 @@ const warnings = [];
 let marketCount = 0;
 let provenanceCount = 0;
 let diasporaFitMismatches = 0;
+let restoredScoreMarkets = 0;
 
 const runImport = db.transaction(() => {
   // Clear previous imported data only. Manual/researched provenance survives.
@@ -230,8 +251,23 @@ const runImport = db.transaction(() => {
     ["tier4_label", "Tier 4 - Deprioritise", "Label for weighted score below tier3 cut-off (kept per approval, 2026-08-26)", "Workbook Priority Tier formula"],
     ["diaspora_fit_map", JSON.stringify(DIASPORA_MAP), "Diaspora Priority -> Diaspora Fit score mapping", "Workbook Diaspora Fit formula (col AB)"],
     ["require_all_scores", "true", "Weighted score requires ALL of market size, access ease and competition (differs from workbook, which scores on partial input)", "Approved decision, 2026-08-26"],
+    ["scale_market_size", norm(cellRaw(guide, "B23")) ?? "", "How to judge Market Size 1-5", `${GUIDE_SHEET}!B23`],
+    ["scale_access_ease", norm(cellRaw(guide, "B24")) ?? "", "How to judge Access Ease 1-5", `${GUIDE_SHEET}!B24`],
+    ["scale_diaspora_fit", norm(cellRaw(guide, "B25")) ?? "", "How Diaspora Fit is derived", `${GUIDE_SHEET}!B25`],
+    ["scale_competition", norm(cellRaw(guide, "B26")) ?? "", "How to judge Competition 1-5", `${GUIDE_SHEET}!B26`],
   ];
+  // A configuration value changed by hand in the app wins over the workbook on
+  // re-import (its source is stamped "Lead Engine app — changed by …").
+  const manualCfg = new Set(
+    db.prepare(`SELECT config_key FROM scoring_config WHERE source LIKE 'Lead Engine app%'`)
+      .all()
+      .map((r) => r.config_key)
+  );
   for (const [key, value, description, source] of cfgRows) {
+    if (manualCfg.has(key)) {
+      warnings.push(`Config "${key}" kept its manually changed value; workbook value ${value} not applied.`);
+      continue;
+    }
     insertConfig.run({ key, value: String(value), description, source, now: importedAt });
     insertProvenance.run({
       entity_type: "scoring_config", entity_id: null, field_name: key,
@@ -241,6 +277,21 @@ const runImport = db.transaction(() => {
       notes: null, imported_at: importedAt,
     });
     provenanceCount++;
+  }
+
+  // Score markets with the EFFECTIVE configuration (manual changes included),
+  // not the raw workbook numbers.
+  {
+    const eff = Object.fromEntries(
+      db.prepare(`SELECT config_key, config_value FROM scoring_config`).all().map((r) => [r.config_key, r.config_value])
+    );
+    weights.market_size = parseFloat(eff.weight_market_size);
+    weights.access_ease = parseFloat(eff.weight_access_ease);
+    weights.diaspora_fit = parseFloat(eff.weight_diaspora_fit);
+    weights.competition = parseFloat(eff.weight_competition);
+    cutoffs.tier1 = parseFloat(eff.tier1_cutoff);
+    cutoffs.tier2 = parseFloat(eff.tier2_cutoff);
+    cutoffs.tier3 = parseFloat(eff.tier3_cutoff);
   }
 
   // --- markets ---
@@ -281,6 +332,28 @@ const runImport = db.transaction(() => {
         warnings.push(`Row ${r} (${country}): invalid ${f} ${m[f]} (must be 1-5); stored as NULL.`);
         m[f] = null;
       }
+    }
+
+    // Restore manually entered app scores where the workbook cell is blank
+    // (a value typed into the workbook itself wins over an old app entry).
+    m.scored_by = null;
+    m.scored_at = null;
+    m.last_reviewed_at = null;
+    const kept = preservedScores.get(country);
+    if (kept) {
+      let restored = false;
+      for (const f of ["market_size_score", "access_ease_score", "competition_score"]) {
+        if (m[f] === null && kept[f] !== null) {
+          m[f] = kept[f];
+          restored = true;
+        }
+      }
+      if (restored || kept.scored_by) {
+        m.scored_by = kept.scored_by;
+        m.scored_at = kept.scored_at;
+        m.last_reviewed_at = kept.last_reviewed_at;
+      }
+      if (restored) restoredScoreMarkets++;
     }
 
     // Weighted score: STRICT rule — all three manual scores required.
@@ -381,6 +454,7 @@ console.log(JSON.stringify({
   markets_imported: marketCount,
   provenance_rows: provenanceCount,
   diaspora_fit_mismatches: diasporaFitMismatches,
+  markets_with_restored_manual_scores: restoredScoreMarkets,
   tier_counts: tierCounts,
   continent_counts: continentCounts,
   warnings_count: warnings.length,

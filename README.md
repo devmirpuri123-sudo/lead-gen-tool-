@@ -43,8 +43,24 @@ workbook in `data/source/` is read-only and is never modified.
 - **Markets page** (`/markets`): all 195 markets with search and filters
   (continent, tier, income tier, owner).
 - **Market detail** (`/markets/[id]`): every field grouped by topic, amber
-  research inputs shown as "Unknown — requires research", and the full
-  provenance table.
+  research inputs shown as "Unknown — requires research", the full provenance
+  table, a plain-English "Why this score?" explanation, and the score-entry
+  form (Phase 2).
+- **Scoring workspace** (`/scoring`): progress bar, the workbook's own 1–5
+  scale definitions, a "score the next market" queue (High diaspora-priority
+  first, then largest population), and per-market scoring status.
+- **Scoring configuration** (`/settings/scoring`): adjust the four weights
+  (must total 100%) and the three tier cut-offs (must descend). Saving
+  recalculates all 195 markets instantly and logs the change history.
+
+### Who/when audit trail (Phase 2)
+
+Every manually entered score and every configuration change requires a name and
+is written to the provenance log (`research_sources`) with the previous value,
+the new value, who made the change, and when. Re-running the workbook import
+never wipes manual work: manually entered scores and manually changed
+configuration values survive, and a workbook cell that has been filled in wins
+over an older app entry only for that cell.
 
 ### Scoring rules (approved 2026-08-26)
 
@@ -59,8 +75,8 @@ workbook in `data/source/` is read-only and is never modified.
 
 ## Roadmap
 
-- **Phase 2** — scoring workspace: enter the three manual scores per market with
-  validation, weighted scores, tiers, and plain-English score explanations.
+- **Phase 2** — ✅ done: scoring workspace, validation, weighted scores and
+  tiers, plain-English explanations, scoring configuration, who/when audit.
 - **Phase 3** — companies, contacts and leads: CSV import, duplicate detection,
   the 16-status pipeline, lead scoring.
 - **Phase 4** — outreach workspace: human-reviewed email/LinkedIn drafts (never

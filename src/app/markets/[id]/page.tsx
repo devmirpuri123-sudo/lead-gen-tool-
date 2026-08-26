@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMarket, getMarketProvenance } from "@/lib/queries";
+import { getMarket, getMarketProvenance, getScorerNames } from "@/lib/queries";
+import { loadScoringConfig, explainScore } from "@/lib/scoring";
+import { saveMarketScores } from "@/lib/actions";
 import { fmtNumber, fmtUsd, orUnknown, tierBadgeClass, UNKNOWN_LABEL } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -15,11 +17,23 @@ function Field({ label, value, unknown }: { label: string; value: string; unknow
   );
 }
 
-export default async function MarketDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function MarketDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  const sp = await searchParams;
   const market = getMarket(Number(id));
   if (!market) notFound();
   const provenance = getMarketProvenance(market.id);
+  const cfg = loadScoringConfig();
+  const explanation = explainScore(market, cfg);
+  const scorers = getScorerNames();
+  const saved = typeof sp.saved === "string" ? sp.saved : null;
+  const error = typeof sp.error === "string" ? sp.error : null;
 
   return (
     <div className="space-y-6">
@@ -87,11 +101,9 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
           <Field label="Diaspora fit (1-5, auto)" value={market.diaspora_fit_score !== null ? String(market.diaspora_fit_score) : "—"} />
           <Field label="Competition (1-5)" value={market.competition_score !== null ? String(market.competition_score) : UNKNOWN_LABEL} />
           <Field label="Weighted score" value={market.weighted_score !== null ? market.weighted_score.toFixed(2) : "Not scored"} unknown={market.weighted_score === null} />
-          <p className="text-xs text-slate-400 mt-2">
-            A weighted score is only computed once Market Size, Access Ease and Competition are all
-            entered (score entry arrives in Phase 2). Diaspora Fit is auto-mapped from Diaspora
-            Priority (High=5, Home=4, Medium=3, Low=1).
-          </p>
+          {market.scored_by && market.scored_at && (
+            <Field label="Scored by" value={`${market.scored_by} · ${market.scored_at.slice(0, 10)}`} />
+          )}
         </section>
 
         <section className="bg-white rounded-lg border border-slate-200 p-4">
@@ -103,6 +115,92 @@ export default async function MarketDetailPage({ params }: { params: Promise<{ i
           </div>
         </section>
       </div>
+
+      <section id="score" className="grid lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-lg border border-slate-200 p-4">
+          <h2 className="font-semibold mb-2">Why this score?</h2>
+          <div className="space-y-2 text-sm text-slate-700">
+            {explanation.map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg border border-slate-200 p-4">
+          <h2 className="font-semibold mb-1">Enter scores</h2>
+          <p className="text-xs text-slate-400 mb-3">
+            Whole numbers 1 (worst) to 5 (best), based on real research — see the scale definitions on
+            the <Link href="/scoring" className="underline">Scoring workspace</Link>. Leave a box blank
+            to clear that score. Every entry is recorded with your name and the date.
+          </p>
+          {saved && (
+            <p className="mb-3 text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded px-3 py-2">{saved}</p>
+          )}
+          {error && (
+            <p className="mb-3 text-sm bg-rose-50 border border-rose-200 text-rose-800 rounded px-3 py-2">{error}</p>
+          )}
+          <form action={saveMarketScores} className="space-y-3 text-sm">
+            <input type="hidden" name="market_id" value={market.id} />
+            <div className="grid grid-cols-3 gap-3">
+              {(
+                [
+                  ["market_size_score", "Market Size", market.market_size_score],
+                  ["access_ease_score", "Access Ease", market.access_ease_score],
+                  ["competition_score", "Competition", market.competition_score],
+                ] as const
+              ).map(([name, label, current]) => (
+                <label key={name} className="block">
+                  <span className="text-slate-600">{label}</span>
+                  <select
+                    name={name}
+                    defaultValue={current !== null ? String(current) : ""}
+                    className="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"
+                  >
+                    <option value="">— not scored —</option>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
+              ))}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-slate-600">Your name (required)</span>
+                <input
+                  name="scored_by"
+                  list="scorer-names"
+                  defaultValue={market.scored_by ?? ""}
+                  maxLength={60}
+                  className="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"
+                  placeholder="Who is entering these scores?"
+                />
+                <datalist id="scorer-names">
+                  {scorers.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="block">
+                <span className="text-slate-600">Note / source (optional)</span>
+                <input
+                  name="note"
+                  maxLength={500}
+                  className="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"
+                  placeholder="e.g. GlobalWits import data, tariff schedule"
+                />
+              </label>
+            </div>
+            <p className="text-xs text-slate-400">
+              Diaspora Fit is set automatically from Diaspora Priority and is not entered here. The
+              weighted score only appears once all three scores are filled in.
+            </p>
+            <button type="submit" className="bg-slate-900 text-white rounded px-4 py-2">
+              Save scores
+            </button>
+          </form>
+        </div>
+      </section>
 
       <section className="bg-white rounded-lg border border-slate-200 p-4">
         <h2 className="font-semibold mb-1">Provenance — where every value came from</h2>
