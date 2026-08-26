@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/settings/scoring" className="hover:text-white">Configuration</Link>
               <Link href="/companies" className="hover:text-white">Companies</Link>
               <Link href="/leads" className="hover:text-white">Leads</Link>
-              <span className="text-slate-500" title="Phase 4">Outreach</span>
+              <Link href="/outreach" className="hover:text-white">Outreach</Link>
               <span className="text-slate-500" title="Phase 5">Reports</span>
             </nav>
           </div>

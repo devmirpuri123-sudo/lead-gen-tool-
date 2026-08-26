@@ -4,6 +4,9 @@ import { getLead, listLeadActivities, listCompanyContacts } from "@/lib/crmQueri
 import { getScorerNames } from "@/lib/queries";
 import { scoreLead } from "@/lib/leadScoring";
 import { updateLeadStatus, addLeadNote } from "@/lib/crmActions";
+import { generateDraft, createReminder, completeReminder } from "@/lib/outreachActions";
+import { listLeadDrafts, listLeadReminders, nextActionForLead } from "@/lib/outreachQueries";
+import { TEMPLATES } from "@/lib/outreachTemplates";
 import { LEAD_STATUSES, STATUS_STAGES, statusBadgeClass } from "@/lib/pipeline";
 import { tierBadgeClass } from "@/lib/format";
 
@@ -25,6 +28,12 @@ export default async function LeadPage({
   const people = getScorerNames();
   const saved = typeof sp.saved === "string" ? sp.saved : null;
   const error = typeof sp.error === "string" ? sp.error : null;
+
+  const today = new Date().toISOString();
+  const next = nextActionForLead(lead, today);
+  const drafts = listLeadDrafts(lead.id);
+  const reminders = listLeadReminders(lead.id);
+  const dnc = lead.status === "Do not contact";
 
   const score = scoreLead({
     company_name: lead.company_name ?? `Lead #${lead.id}`,
@@ -66,6 +75,12 @@ export default async function LeadPage({
 
       {saved && <p className="text-sm bg-emerald-50 border border-emerald-200 text-emerald-800 rounded px-3 py-2">{saved}</p>}
       {error && <p className="text-sm bg-rose-50 border border-rose-200 text-rose-800 rounded px-3 py-2">{error}</p>}
+
+      <section className={`rounded-lg border p-4 text-sm ${dnc ? "bg-rose-50 border-rose-200" : next.urgent ? "bg-amber-50 border-amber-200" : "bg-white border-slate-200"}`}>
+        <p className="text-xs uppercase tracking-wide text-slate-400 mb-1">Recommended next action</p>
+        <p className="font-semibold">{next.action}</p>
+        <p className="text-slate-600 mt-0.5">{next.reason}</p>
+      </section>
 
       <section className="bg-white rounded-lg border border-slate-200 p-4 overflow-x-auto">
         <p className="text-xs uppercase tracking-wide text-slate-400 mb-2">Pipeline position</p>
@@ -163,6 +178,105 @@ export default async function LeadPage({
             )}
           </section>
         </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-4">
+        <section className="bg-white rounded-lg border border-slate-200 p-4">
+          <h2 className="font-semibold mb-2">Outreach drafts ({drafts.length})</h2>
+          {dnc ? (
+            <p className="text-sm bg-rose-50 border border-rose-200 text-rose-800 rounded px-3 py-2">
+              This lead is marked <strong>Do not contact</strong> — drafts cannot be created,
+              approved or sent for it.
+            </p>
+          ) : (
+            <>
+              {drafts.length > 0 && (
+                <ul className="space-y-1.5 mb-3 text-sm">
+                  {drafts.map((d) => (
+                    <li key={d.id} className="flex items-center gap-2">
+                      <Link href={`/outreach/${d.id}`} className="font-medium hover:underline">#{d.id} {d.channel}</Link>
+                      <span className={`text-xs border rounded-full px-2 py-0.5 ${
+                        d.status === "approved" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        : d.status === "sent_manually" ? "bg-sky-100 text-sky-800 border-sky-200"
+                        : d.status === "discarded" ? "bg-slate-100 text-slate-500 border-slate-200"
+                        : "bg-amber-100 text-amber-800 border-amber-200"
+                      }`}>
+                        {d.status === "sent_manually" ? "sent manually" : d.status === "draft" ? "needs review" : d.status}
+                      </span>
+                      <span className="text-xs text-slate-400">{d.created_at.slice(0, 10)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <form action={generateDraft} className="flex flex-wrap items-end gap-2 text-sm">
+                <input type="hidden" name="lead_id" value={lead.id} />
+                <label className="block">
+                  <span className="text-slate-600">Template</span>
+                  <select name="template_key" className="mt-1 border border-slate-300 rounded px-2 py-1.5">
+                    {TEMPLATES.map((t) => (
+                      <option key={t.key} value={t.key}>{t.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-slate-600">Your name</span>
+                  <input name="entered_by" list="people" maxLength={60} className="mt-1 border border-slate-300 rounded px-2 py-1.5 w-40" />
+                </label>
+                <button type="submit" className="bg-slate-900 text-white rounded px-3 py-1.5">Generate draft</button>
+              </form>
+              <p className="text-xs text-slate-400 mt-2">
+                Drafts use only facts on file; anything unknown appears as a [PLACEHOLDER] you must
+                resolve before approving. Nothing is ever sent by the system.
+              </p>
+            </>
+          )}
+        </section>
+
+        <section className="bg-white rounded-lg border border-slate-200 p-4">
+          <h2 className="font-semibold mb-2">Follow-up reminders</h2>
+          {reminders.length > 0 && (
+            <ul className="space-y-1.5 mb-3 text-sm">
+              {reminders.map((r) => {
+                const overdue = !r.completed_at && r.due_at.slice(0, 10) <= today.slice(0, 10);
+                return (
+                  <li key={r.id} className="flex items-start gap-2">
+                    <span className={`shrink-0 text-xs rounded px-1.5 py-0.5 mt-0.5 tabular-nums ${
+                      r.completed_at ? "bg-slate-100 text-slate-400 line-through"
+                      : overdue ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-500"
+                    }`}>
+                      {r.due_at.slice(0, 10)}
+                    </span>
+                    <span className={`grow ${r.completed_at ? "text-slate-400 line-through" : "text-slate-700"}`}>{r.description}</span>
+                    {!r.completed_at && (
+                      <form action={completeReminder} className="shrink-0 flex items-center gap-1">
+                        <input type="hidden" name="activity_id" value={r.id} />
+                        <input type="hidden" name="back" value={`/leads/${lead.id}`} />
+                        <input name="entered_by" placeholder="Your name" className="border border-slate-300 rounded px-1.5 py-0.5 text-xs w-24" />
+                        <button type="submit" className="text-xs border border-slate-300 rounded px-2 py-0.5 hover:bg-slate-100">Done</button>
+                      </form>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <form action={createReminder} className="flex flex-wrap items-end gap-2 text-sm">
+            <input type="hidden" name="lead_id" value={lead.id} />
+            <label className="block grow max-w-[220px]">
+              <span className="text-slate-600">What for?</span>
+              <input name="description" maxLength={300} className="mt-1 w-full border border-slate-300 rounded px-2 py-1.5" placeholder="e.g. chase catalogue reply" />
+            </label>
+            <label className="block">
+              <span className="text-slate-600">Due date</span>
+              <input type="date" name="due_at" className="mt-1 border border-slate-300 rounded px-2 py-1.5" />
+            </label>
+            <label className="block">
+              <span className="text-slate-600">Your name</span>
+              <input name="entered_by" list="people" maxLength={60} className="mt-1 border border-slate-300 rounded px-2 py-1.5 w-36" />
+            </label>
+            <button type="submit" className="bg-slate-900 text-white rounded px-3 py-1.5">Set reminder</button>
+          </form>
+        </section>
       </div>
 
       <section className="bg-white rounded-lg border border-slate-200 p-4">

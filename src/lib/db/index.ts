@@ -23,6 +23,10 @@ function migrate(db: Database.Database) {
   const cols = (db.prepare(`PRAGMA table_info(markets)`).all() as { name: string }[]).map((c) => c.name);
   if (!cols.includes("scored_by")) db.exec(`ALTER TABLE markets ADD COLUMN scored_by TEXT`);
   if (!cols.includes("scored_at")) db.exec(`ALTER TABLE markets ADD COLUMN scored_at TEXT`);
+  const draftCols = (db.prepare(`PRAGMA table_info(outreach_drafts)`).all() as { name: string }[]).map((c) => c.name);
+  for (const col of ["template_key", "created_by", "approved_by", "approved_at", "sent_by", "sent_at"]) {
+    if (!draftCols.includes(col)) db.exec(`ALTER TABLE outreach_drafts ADD COLUMN ${col} TEXT`);
+  }
 }
 
 export const UNKNOWN_LABEL = "Unknown — requires research";

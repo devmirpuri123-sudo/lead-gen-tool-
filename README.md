@@ -80,6 +80,30 @@ workbook in `data/source/` is read-only and is never modified.
   "Do not contact" is respected: the score panel says outreach may not be
   drafted for such leads.
 
+- **Outreach workspace** (`/outreach`): follow-up reminders (overdue first),
+  drafts awaiting review / approved awaiting manual send, per-lead next-action
+  recommendations, and a recently-sent log.
+- **Draft review** (`/outreach/[id]`): edit, approve, mark sent manually,
+  revert to draft, or discard — with the full who/when audit line.
+
+### Outreach (Phase 4) — human-reviewed, never automated
+
+- Drafts are generated offline from fixed templates (email intro, email
+  follow-up, LinkedIn connection note, LinkedIn message) using only facts on
+  file. Unknown facts appear as loud [BRACKETED PLACEHOLDERS].
+- A draft with unresolved placeholders cannot be approved — the server lists
+  what still needs resolving. Only an approved draft can be marked sent.
+- The system sends nothing. "Mark sent" records that a human sent the text
+  themselves (email from their mailbox, LinkedIn from their own profile), and
+  optionally sets a 7-day follow-up reminder and moves the lead to Contacted.
+- **Do not contact is absolute**: the UI hides drafting for such leads and the
+  server independently refuses to generate, approve or mark-send for them.
+- Follow-up reminders have due dates, show overdue-first on the workspace and
+  the lead page, and are completed with a name recorded.
+- Next-action recommendations are rule-based and explained for every lead —
+  research gaps first, then market scoring, draft review, sending, follow-ups
+  and stage-appropriate advice.
+
 ### Who/when audit trail (Phase 2)
 
 Every manually entered score and every configuration change requires a name and
@@ -107,8 +131,9 @@ over an older app entry only for that cell.
 - **Phase 3** — ✅ done: companies, contacts and leads, CSV import, duplicate
   detection, the 16-status pipeline, transparent lead scoring, research
   checklists.
-- **Phase 4** — outreach workspace: human-reviewed email/LinkedIn drafts (never
-  auto-sent), follow-up reminders, next-action recommendations.
+- **Phase 4** — ✅ done: outreach workspace, template drafts with placeholder
+  gating, approve/mark-sent-manually workflow, reminders, next-action engine,
+  absolute Do-not-contact guardrails.
 - **Phase 5** — reporting: weekly report, data-quality and duplicate reports,
   XLSX/CSV export.
 

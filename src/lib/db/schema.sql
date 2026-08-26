@@ -108,6 +108,12 @@ CREATE TABLE IF NOT EXISTS outreach_drafts (
   status TEXT NOT NULL DEFAULT 'draft'
     CHECK (status IN ('draft','approved','sent_manually','discarded')),
   requires_human_review INTEGER NOT NULL DEFAULT 1 CHECK (requires_human_review = 1),
+  template_key TEXT,
+  created_by TEXT,
+  approved_by TEXT,
+  approved_at TEXT,
+  sent_by TEXT,
+  sent_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
