@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLead, listLeadActivities, listCompanyContacts } from "@/lib/crmQueries";
 import { getScorerNames } from "@/lib/queries";
-import { scoreLead } from "@/lib/leadScoring";
+import { scoreLead, scoringInputFromLead, icpTierBadgeClass } from "@/lib/leadScoring";
 import { updateLeadStatus, addLeadNote } from "@/lib/crmActions";
 import { generateDraft, createReminder, completeReminder } from "@/lib/outreachActions";
 import { listLeadDrafts, listLeadReminders, nextActionForLead } from "@/lib/outreachQueries";
@@ -35,17 +35,7 @@ export default async function LeadPage({
   const reminders = listLeadReminders(lead.id);
   const dnc = lead.status === "Do not contact";
 
-  const score = scoreLead({
-    company_name: lead.company_name ?? `Lead #${lead.id}`,
-    company_type: lead.company_type,
-    website: lead.website,
-    description: lead.description,
-    contact_name: lead.contact_name,
-    contact_email: lead.contact_email,
-    market_country: lead.market_country,
-    market_tier: lead.market_tier,
-    status: lead.status,
-  });
+  const score = scoreLead(scoringInputFromLead(lead));
 
   return (
     <div className="space-y-5">
@@ -100,7 +90,13 @@ export default async function LeadPage({
 
       <div className="grid lg:grid-cols-2 gap-4">
         <section className="bg-white rounded-lg border border-slate-200 p-4">
-          <h2 className="font-semibold mb-1">Lead score: {score.score}/100</h2>
+          <h2 className="font-semibold mb-1 flex items-center gap-2">
+            ICP fit score: {score.score}/100
+            <span className={`text-xs border rounded-full px-2 py-0.5 ${icpTierBadgeClass(score.tier)}`}>Tier {score.tierLabel}</span>
+          </h2>
+          <p className="text-xs text-slate-400 mb-1">
+            Data completeness: {Math.round(score.completeness * 100)}% of the 12 key enrichment fields.
+          </p>
           <div className="flex gap-1 my-2">
             {score.components.map((c) => (
               <div key={c.label} className="h-2 rounded-full bg-slate-100 overflow-hidden" style={{ flexGrow: c.max }}>

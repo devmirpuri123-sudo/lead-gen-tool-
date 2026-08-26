@@ -95,6 +95,33 @@ workbook in `data/source/` is read-only and is never modified.
   breakdown). The dashboard shows the pipeline by stage, the last 7 days of
   activity, market tiers, and an overdue-follow-ups alert.
 
+### Export Lead Enrichment integration (Phase 6)
+
+The app is aligned with the team's field workbook,
+`data/source/SACVIN_Export_Lead_Enrichment.xlsx` (stored read-only, never
+modified):
+
+- **Enriched data model**: companies carry the workbook's LEAD MASTER fields —
+  import intelligence (Imports?, HS codes, source countries, suppliers,
+  volumes/values, frequency, displacement opportunity, data source), commercial
+  fit (discharge port, preferential access, compliance, language, priority
+  SACVIN products, est. opportunity), and source & data quality (lead source
+  tool, date pulled, verified by/when, workbook Lead ID). Contacts carry
+  decision role, email status, WhatsApp, function, source tool and more.
+- **Workbook upload**: `/companies/import` accepts the .xlsx directly — LEAD
+  MASTER and CONTACTS are read by header name, the three shipped worked-example
+  rows are recognised and skipped, duplicates are skipped and reported, and
+  every value gets sheet + row provenance.
+- **ICP fit score**: lead scoring now implements the workbook's own model
+  (Business type 25 · Already importing 20 · Competing origin 20 · Company
+  size 15 · Category match 10 · Contact quality 10; tiers A ≥75 / B ≥60 /
+  C ≥40 / D). Point tables and thresholds are imported from the SCORING sheet
+  into `scoring_config` and are editable; "Unknown" inputs get the model's
+  explicit Unknown points and are named in the plain-English explanation,
+  along with the workbook's 12-field data-completeness measure. The market
+  weighted score (Tier 1–4) remains a separate, visible signal — it is not
+  blended into the ICP score.
+
 ### Outreach (Phase 4) — human-reviewed, never automated
 
 - Drafts are generated offline from fixed templates (email intro, email
@@ -146,9 +173,13 @@ over an older app entry only for that cell.
 - **Phase 5** — ✅ done: upgraded dashboard, weekly report, data-quality and
   duplicate reports, XLSX/CSV export.
 
-All five MVP phases are complete. Natural next steps (when wanted): market
-research helpers, draft template editing in-app, and a backup/restore command
-for the database file.
+- **Phase 6** — ✅ done: Export Lead Enrichment workbook integration — enriched
+  company/contact model, direct .xlsx upload, and the workbook's ICP fit-score
+  model replacing the placeholder lead score.
+
+All MVP phases are complete. Natural next steps (when wanted): market research
+helpers, draft template editing in-app, and a backup/restore command for the
+database file.
 
 ## Technical notes
 
