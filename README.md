@@ -86,6 +86,15 @@ workbook in `data/source/` is read-only and is never modified.
 - **Draft review** (`/outreach/[id]`): edit, approve, mark sent manually,
   revert to draft, or discard — with the full who/when audit line.
 
+- **Reports** (`/reports`): weekly report (new leads, status movements,
+  outreach sent, replies, markets scored, overdue follow-ups, activity by
+  person — with previous/next week navigation), data-quality &amp; duplicates
+  report (open research work per table, stale leads, similar names, shared
+  domains, shared emails), and one-click CSV/XLSX exports of markets,
+  companies, contacts and leads (lead exports include the live score and its
+  breakdown). The dashboard shows the pipeline by stage, the last 7 days of
+  activity, market tiers, and an overdue-follow-ups alert.
+
 ### Outreach (Phase 4) — human-reviewed, never automated
 
 - Drafts are generated offline from fixed templates (email intro, email
@@ -134,8 +143,12 @@ over an older app entry only for that cell.
 - **Phase 4** — ✅ done: outreach workspace, template drafts with placeholder
   gating, approve/mark-sent-manually workflow, reminders, next-action engine,
   absolute Do-not-contact guardrails.
-- **Phase 5** — reporting: weekly report, data-quality and duplicate reports,
-  XLSX/CSV export.
+- **Phase 5** — ✅ done: upgraded dashboard, weekly report, data-quality and
+  duplicate reports, XLSX/CSV export.
+
+All five MVP phases are complete. Natural next steps (when wanted): market
+research helpers, draft template editing in-app, and a backup/restore command
+for the database file.
 
 ## Technical notes
 
