@@ -1,60 +1,206 @@
-# lead-gen-tool-
-Help with B2B lead generation
+# SACVIN GLOBAL PLASTICS LEAD ENGINE
 
-## MCP servers
+Internal semi-automated lead-generation system for **SACVIN Nigeria Limited** and
+**Veeglow Engineering Solutions** — identify, research, score, manage and warm
+potential wholesalers, distributors, retailers, importers and trade partners for
+plastics products worldwide.
 
-This repo ships a project-scoped MCP config in [`.mcp.json`](.mcp.json). Anyone
-who clones it gets the same servers, but each person supplies their own
-credentials via environment variables — no keys are committed.
+**Ground rules baked into the system:**
 
-### magic (`@21st-dev/magic`)
+- Nothing is ever sent automatically. All outreach drafts are human-reviewed and
+  sent manually. There is no LinkedIn automation of any kind.
+- Imported data is planning-grade. Every value carries provenance (original
+  value, normalised value, source file, worksheet, cell, import date, method,
+  confidence). Missing facts are labelled **"Unknown — requires research"**,
+  uncertain ones **"Unverified — requires human review"** — never invented.
+- Diaspora data is a country-level market-prioritisation input only. It is never
+  used as a personal targeting attribute.
 
-UI component generation from [21st.dev](https://21st.dev).
+## How to run it (plain English)
 
-**Setup:**
-
-1. Get an API key at https://21st.dev/mcp
-2. Export it before launching Claude Code:
-
-   ```bash
-   export MAGIC_API_KEY="your-key-here"
-   ```
-
-   Add it to your shell profile (`~/.zshrc`, `~/.bashrc`) to make it stick, or
-   put it in a local `.env` — both `.env` and `.claude/settings.local.json` are
-   gitignored.
-
-3. Run `claude` and approve the server when prompted. Project-scoped servers
-   from `.mcp.json` require a one-time per-user approval before they load.
-
-**Verify:**
+You need Node.js 20+ installed. Then, from this folder:
 
 ```bash
-claude mcp get magic
+npm install              # one-time: download the app's building blocks
+npm run import:workbook  # load data/source/Countries_by_Continent.xlsx into the database
+npm run dev              # start the app, then open http://localhost:3000
 ```
 
-Expected once the key is set and the server approved: `Status: ✓ Connected`.
+The database is a single file, `data/app.db`. It is not stored in git — the
+import command rebuilds it from the source workbook at any time. The original
+workbook in `data/source/` is read-only and is never modified.
 
-Common failure modes:
+## What exists so far (Phase 1)
 
-| Message | Cause |
-| --- | --- |
-| `Missing environment variables: MAGIC_API_KEY` | Var not exported in the shell that launched Claude Code |
-| `-32001 Not authenticated` | Key is set but invalid or reset — get a fresh one |
-| `Pending approval` | Run `claude` interactively and approve the server |
+- **Eight database tables**: markets, companies, contacts, leads,
+  outreach_drafts, activities, research_sources (doubles as field-level
+  provenance), scoring_config. See `src/lib/db/schema.sql`.
+- **Workbook importer** (`scripts/import-workbook.mjs`): imports all 195
+  markets, the scoring weights/cut-offs/diaspora mapping from the Scoring Guide
+  sheet, and the workbook's own caveats — ~4,200 provenance records in total.
+- **Dashboard** (`/`): counts, markets by continent, the scoring model, and the
+  source caveats.
+- **Markets page** (`/markets`): all 195 markets with search and filters
+  (continent, tier, income tier, owner).
+- **Market detail** (`/markets/[id]`): every field grouped by topic, amber
+  research inputs shown as "Unknown — requires research", the full provenance
+  table, a plain-English "Why this score?" explanation, and the score-entry
+  form (Phase 2).
+- **Scoring workspace** (`/scoring`): progress bar, the workbook's own 1–5
+  scale definitions, a "score the next market" queue (High diaspora-priority
+  first, then largest population), and per-market scoring status.
+- **Scoring configuration** (`/settings/scoring`): adjust the four weights
+  (must total 100%) and the three tier cut-offs (must descend). Saving
+  recalculates all 195 markets instantly and logs the change history.
 
-## CI
+- **Companies** (`/companies`): list with search/filters, manual entry form
+  (`/companies/new`), CSV import (`/companies/import`), and a detail page with
+  editable fields, contacts, leads, a research checklist and provenance.
+- **Leads** (`/leads`): the 16-status pipeline board, filterable list with live
+  0–100 lead scores, and a detail page (`/leads/[id]`) with the pipeline
+  position, a fully explained score, status changes, notes and an activity log.
+
+### Companies, contacts & leads (Phase 3)
+
+- Manual entry only records what you actually researched; blank fields display
+  as "Unknown — requires research" and are never guessed.
+- Duplicate detection: an identical name or website domain blocks creation
+  (override checkbox available); similar names ignoring suffixes like
+  Ltd/Trading/Group are flagged as possible duplicates. CSV imports skip exact
+  duplicates (in-file and against the database) and flag possible ones.
+- CSV import (`/companies/import`) cleans rows, validates emails, matches
+  countries against the market list, reports every skipped/flagged row, stores
+  the report for later review, and records file + row number provenance for
+  every value. Optionally creates an "Imported" lead per company.
+- Lead scoring is transparent: Market attractiveness (0–40, from the market's
+  priority tier) + Partner-type fit (0–30) + Research completeness (0–30),
+  with a plain-English explanation naming every missing input. A low score
+  from missing data is labelled as such, not treated as a verdict.
+- Every status change and note is logged in the activity trail with who/when.
+  "Do not contact" is respected: the score panel says outreach may not be
+  drafted for such leads.
+
+- **Outreach workspace** (`/outreach`): follow-up reminders (overdue first),
+  drafts awaiting review / approved awaiting manual send, per-lead next-action
+  recommendations, and a recently-sent log.
+- **Draft review** (`/outreach/[id]`): edit, approve, mark sent manually,
+  revert to draft, or discard — with the full who/when audit line.
+
+- **Reports** (`/reports`): weekly report (new leads, status movements,
+  outreach sent, replies, markets scored, overdue follow-ups, activity by
+  person — with previous/next week navigation), data-quality &amp; duplicates
+  report (open research work per table, stale leads, similar names, shared
+  domains, shared emails), and one-click CSV/XLSX exports of markets,
+  companies, contacts and leads (lead exports include the live score and its
+  breakdown). The dashboard shows the pipeline by stage, the last 7 days of
+  activity, market tiers, and an overdue-follow-ups alert.
+
+### Export Lead Enrichment integration (Phase 6)
+
+The app is aligned with the team's field workbook,
+`data/source/SACVIN_Export_Lead_Enrichment.xlsx` (stored read-only, never
+modified):
+
+- **Enriched data model**: companies carry the workbook's LEAD MASTER fields —
+  import intelligence (Imports?, HS codes, source countries, suppliers,
+  volumes/values, frequency, displacement opportunity, data source), commercial
+  fit (discharge port, preferential access, compliance, language, priority
+  SACVIN products, est. opportunity), and source & data quality (lead source
+  tool, date pulled, verified by/when, workbook Lead ID). Contacts carry
+  decision role, email status, WhatsApp, function, source tool and more.
+- **Workbook upload**: `/companies/import` accepts the .xlsx directly — LEAD
+  MASTER and CONTACTS are read by header name, the three shipped worked-example
+  rows are recognised and skipped, duplicates are skipped and reported, and
+  every value gets sheet + row provenance.
+- **ICP fit score**: lead scoring now implements the workbook's own model
+  (Business type 25 · Already importing 20 · Competing origin 20 · Company
+  size 15 · Category match 10 · Contact quality 10; tiers A ≥75 / B ≥60 /
+  C ≥40 / D). Point tables and thresholds are imported from the SCORING sheet
+  into `scoring_config` and are editable; "Unknown" inputs get the model's
+  explicit Unknown points and are named in the plain-English explanation,
+  along with the workbook's 12-field data-completeness measure. The market
+  weighted score (Tier 1–4) remains a separate, visible signal — it is not
+  blended into the ICP score.
+
+### Outreach (Phase 4) — human-reviewed, never automated
+
+- Drafts are generated offline from fixed templates (email intro, email
+  follow-up, LinkedIn connection note, LinkedIn message) using only facts on
+  file. Unknown facts appear as loud [BRACKETED PLACEHOLDERS].
+- A draft with unresolved placeholders cannot be approved — the server lists
+  what still needs resolving. Only an approved draft can be marked sent.
+- The system sends nothing. "Mark sent" records that a human sent the text
+  themselves (email from their mailbox, LinkedIn from their own profile), and
+  optionally sets a 7-day follow-up reminder and moves the lead to Contacted.
+- **Do not contact is absolute**: the UI hides drafting for such leads and the
+  server independently refuses to generate, approve or mark-send for them.
+- Follow-up reminders have due dates, show overdue-first on the workspace and
+  the lead page, and are completed with a name recorded.
+- Next-action recommendations are rule-based and explained for every lead —
+  research gaps first, then market scoring, draft review, sending, follow-ups
+  and stage-appropriate advice.
+
+### Who/when audit trail (Phase 2)
+
+Every manually entered score and every configuration change requires a name and
+is written to the provenance log (`research_sources`) with the previous value,
+the new value, who made the change, and when. Re-running the workbook import
+never wipes manual work: manually entered scores and manually changed
+configuration values survive, and a workbook cell that has been filled in wins
+over an older app entry only for that cell.
+
+### Scoring rules (approved 2026-08-26)
+
+- Weights: Market Size 30%, Access Ease 25%, Diaspora Fit 20%, Competition 25%
+  (imported from the Scoring Guide sheet, editable in `scoring_config`).
+- Tiers: ≥4.00 Tier 1 - Priority · ≥3.00 Tier 2 - Develop · ≥2.00 Tier 3 -
+  Monitor · below 2.00 **Tier 4 - Deprioritise** (kept from the workbook).
+- Diaspora Fit is auto-mapped from Diaspora Priority: High=5, Home=4, Medium=3, Low=1.
+- **Stricter than the workbook:** a weighted score is only computed when all
+  three manual scores (Market Size, Access Ease, Competition) are present and
+  valid (1–5). Partial input stays "Not scored".
+
+## Roadmap
+
+- **Phase 2** — ✅ done: scoring workspace, validation, weighted scores and
+  tiers, plain-English explanations, scoring configuration, who/when audit.
+- **Phase 3** — ✅ done: companies, contacts and leads, CSV import, duplicate
+  detection, the 16-status pipeline, transparent lead scoring, research
+  checklists.
+- **Phase 4** — ✅ done: outreach workspace, template drafts with placeholder
+  gating, approve/mark-sent-manually workflow, reminders, next-action engine,
+  absolute Do-not-contact guardrails.
+- **Phase 5** — ✅ done: upgraded dashboard, weekly report, data-quality and
+  duplicate reports, XLSX/CSV export.
+
+- **Phase 6** — ✅ done: Export Lead Enrichment workbook integration — enriched
+  company/contact model, direct .xlsx upload, and the workbook's ICP fit-score
+  model replacing the placeholder lead score.
+
+All MVP phases are complete. Natural next steps (when wanted): market research
+helpers, draft template editing in-app, and a backup/restore command for the
+database file.
+
+## Technical notes
+
+Next.js 15 (App Router, TypeScript) · SQLite via better-sqlite3 · Tailwind CSS 4.
+Rebuild for production with `npm run build && npm run start`.
+
+---
+
+## MCP servers (pre-existing repo config)
+
+This repo ships a project-scoped MCP config in [`.mcp.json`](.mcp.json) for the
+`magic` (`@21st-dev/magic`) UI-generation server. It is optional and unused by
+the app itself. Setup: get a key at https://21st.dev/mcp, export
+`MAGIC_API_KEY`, then approve the server in Claude Code. `.env` and
+`.claude/settings.local.json` are gitignored.
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) validates `.mcp.json` on
-every push to `main` and every pull request. It checks that the file parses,
-that each server declares a `command` or `url`, that credential-shaped env keys
-hold a `${VAR}` reference rather than a literal secret, and that no env value
-contains non-ASCII characters — which is how a truncated or mis-pasted key
-sneaks in and fails later with an opaque transport error.
-
-Run the same check locally:
+every push to `main` and every pull request (file parses, each server declares a
+`command` or `url`, credential-shaped env keys hold `${VAR}` references rather
+than literal secrets, no non-ASCII env values). Run locally:
 
 ```bash
 python3 .github/scripts/validate_mcp_config.py
 ```
-
