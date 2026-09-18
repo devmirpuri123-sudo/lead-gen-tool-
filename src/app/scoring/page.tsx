@@ -38,18 +38,27 @@ export default async function ScoringPage({
         <div>
           <h1 className="text-2xl font-semibold">Scoring workspace</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Enter Market Size, Access Ease and Competition (1–5) per market. A weighted score only
+            Enter Market Size, Access Ease and Competition (1–5) per market — or let the app suggest
+            all three from the facts on file and accept them in one click. A weighted score only
             appears once all three are filled in — partial input stays "Not scored".
           </p>
         </div>
-        {nextId !== null && (
+        <div className="flex flex-wrap gap-2">
           <Link
-            href={`/markets/${nextId}#score`}
-            className="bg-emerald-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-emerald-700"
+            href="/scoring/suggestions"
+            className="bg-sky-700 text-white rounded px-4 py-2 text-sm font-medium hover:bg-sky-800"
           >
-            Score the next market →
+            Score many at once with suggestions →
           </Link>
-        )}
+          {nextId !== null && (
+            <Link
+              href={`/markets/${nextId}#score`}
+              className="bg-emerald-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-emerald-700"
+            >
+              Score the next market →
+            </Link>
+          )}
+        </div>
       </div>
 
       <section className="bg-white rounded-lg border border-slate-200 p-4">
