@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "import:workbook": "node scripts/import-workbook.mjs"
+    "import:workbook": "node scripts/import-workbook.mjs",
+    "import:research": "node scripts/import-research.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",

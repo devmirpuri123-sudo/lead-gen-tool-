@@ -95,6 +95,42 @@ workbook in `data/source/` is read-only and is never modified.
   breakdown). The dashboard shows the pipeline by stage, the last 7 days of
   activity, market tiers, and an overdue-follow-ups alert.
 
+### Automatic score suggestions (Phase 7)
+
+Scoring 195 markets by hand is the slowest job in the system, so the app now
+works the scores out for you and asks a person to accept them.
+
+- **Suggested scores** appear on every market page beside the manual form. Each
+  criterion shows a proposed 1–5, the plain-English reason, and the exact facts
+  used — e.g. *"Market Size 5 — recorded household-plastics imports of $1.2bn a
+  year"*, *"Access Ease 4 — coastal, 6.5% import duty, EU Single Market"*.
+- **Nothing is ever scored automatically.** A named person clicks *Accept
+  suggested scores*; until then the market stays as it was, and every accepted
+  score remains editable by hand afterwards.
+- **It refuses to guess.** Where a fact is missing the suggestion is withheld and
+  the panel names what to research instead. Market Size falls back to population
+  and GDP as a stand-in when no import figure exists, and says so.
+- **Score many at once** (`/scoring/suggestions`): every market whose three
+  criteria can be worked out, in one table, with tick-boxes and a single name
+  field. A continent of markets is scored in one click instead of one afternoon.
+- **The audit trail stays honest.** Accepted suggestions are written to
+  provenance as `calculated`, sourced to "Lead Engine app — suggested score",
+  with the reasoning and the accepting person's name — never mistakable for
+  hand research. The provenance table now shows that reasoning column.
+
+The suggestions are only as good as the facts behind them, so researched trade
+data is loaded separately:
+
+```bash
+npm run import:research     # fills import value, duty and local competition
+```
+
+`data/research/europe-market-research.csv` carries HS 3924/3923 import values,
+import duty rates and local-competition ratings for 43 European markets, each
+row citing its source. Existing values are never overwritten (pass
+`--overwrite` to replace them), and every value lands in provenance as
+`researched` / *Unverified — requires human review*.
+
 ### Export Lead Enrichment integration (Phase 6)
 
 The app is aligned with the team's field workbook,
@@ -177,9 +213,13 @@ over an older app entry only for that cell.
   company/contact model, direct .xlsx upload, and the workbook's ICP fit-score
   model replacing the placeholder lead score.
 
-All MVP phases are complete. Natural next steps (when wanted): market research
-helpers, draft template editing in-app, and a backup/restore command for the
-database file.
+- **Phase 7** — ✅ done: automatic score suggestions with plain-English
+  reasoning, one-click acceptance per market, a bulk scoring screen, and a
+  researched trade-data loader.
+
+All MVP phases are complete. Natural next steps (when wanted): draft template
+editing in-app, researched trade data for markets outside Europe, and a
+backup/restore command for the database file.
 
 ## Technical notes
 

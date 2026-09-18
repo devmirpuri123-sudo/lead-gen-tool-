@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMarket, getMarketProvenance, getScorerNames } from "@/lib/queries";
 import { loadScoringConfig, explainScore } from "@/lib/scoring";
-import { saveMarketScores } from "@/lib/actions";
+import { saveMarketScores, acceptSuggestedScores } from "@/lib/actions";
+import { suggestScores, confidencePhrase } from "@/lib/scoreSuggestions";
 import { fmtNumber, fmtUsd, orUnknown, tierBadgeClass, UNKNOWN_LABEL } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export default async function MarketDetailPage({
   const provenance = getMarketProvenance(market.id);
   const cfg = loadScoringConfig();
   const explanation = explainScore(market, cfg);
+  const { suggestions, complete: canSuggest } = suggestScores(market);
   const scorers = getScorerNames();
   const saved = typeof sp.saved === "string" ? sp.saved : null;
   const error = typeof sp.error === "string" ? sp.error : null;
@@ -116,7 +118,7 @@ export default async function MarketDetailPage({
         </section>
       </div>
 
-      <section id="score" className="grid lg:grid-cols-2 gap-4">
+      <section id="score" className="grid lg:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <h2 className="font-semibold mb-2">Why this score?</h2>
           <div className="space-y-2 text-sm text-slate-700">
@@ -126,8 +128,98 @@ export default async function MarketDetailPage({
           </div>
         </div>
 
+        <div className="bg-white rounded-lg border-2 border-sky-200 p-4">
+          <h2 className="font-semibold mb-1">Suggested scores</h2>
+          <p className="text-xs text-slate-400 mb-3">
+            Worked out automatically from the facts already on this market — no guesswork, and each
+            one shows its reasoning. Where those facts came from, and how firm they are, is in the
+            provenance table at the bottom of this page. Nothing is saved until a person accepts it,
+            and every score stays editable below.
+          </p>
+          <div className="space-y-2">
+            {suggestions.map((s) => (
+              <div key={s.key} className="border border-slate-200 rounded p-2.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-medium text-sm">{s.label}</span>
+                  <span className="flex items-baseline gap-2">
+                    {s.score === null ? (
+                      <span className="text-xs italic text-amber-600">cannot suggest</span>
+                    ) : (
+                      <span className="text-xs text-slate-400">{confidencePhrase(s)}</span>
+                    )}
+                    <span
+                      className={`inline-flex items-center justify-center w-7 h-7 rounded text-sm font-semibold ${
+                        s.score === null
+                          ? "bg-amber-50 text-amber-600 border border-amber-200"
+                          : "bg-sky-100 text-sky-900 border border-sky-200"
+                      }`}
+                    >
+                      {s.score ?? "?"}
+                    </span>
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 mt-1">{s.basis}</p>
+                {s.missing && (
+                  <p className="text-xs text-amber-700 mt-1">Still needed: {s.missing}</p>
+                )}
+                {s.evidence.length > 0 && (
+                  <ul className="mt-1 text-xs text-slate-400 list-disc pl-4 space-y-0.5">
+                    {s.evidence.map((e, i) => (
+                      <li key={i}>{e}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {canSuggest ? (
+            <form action={acceptSuggestedScores} className="mt-3 space-y-2 text-sm">
+              <input type="hidden" name="market_id" value={market.id} />
+              <div className="grid sm:grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="text-slate-600 text-xs">Your name (required)</span>
+                  <input
+                    name="accepted_by"
+                    list="scorer-names"
+                    defaultValue={market.scored_by ?? ""}
+                    maxLength={60}
+                    className="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"
+                    placeholder="Who is accepting these?"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-slate-600 text-xs">Note (optional)</span>
+                  <input
+                    name="note"
+                    maxLength={500}
+                    className="mt-1 w-full border border-slate-300 rounded px-2 py-1.5"
+                    placeholder="e.g. checked against Trade Map"
+                  />
+                </label>
+              </div>
+              <button type="submit" className="bg-sky-700 text-white rounded px-4 py-2 hover:bg-sky-800">
+                Accept suggested scores
+              </button>
+              <p className="text-xs text-slate-400">
+                Recorded in provenance as a calculated score accepted by you — never as hand research.
+              </p>
+            </form>
+          ) : (
+            <p className="mt-3 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded px-3 py-2">
+              All three criteria need a suggestion before these can be accepted in one click. Fill in
+              the research listed above, or enter the scores by hand below.
+            </p>
+          )}
+          <p className="mt-2 text-xs">
+            <Link href="/scoring/suggestions" className="underline text-slate-500">
+              Score many markets at once →
+            </Link>
+          </p>
+        </div>
+
         <div className="bg-white rounded-lg border border-slate-200 p-4">
-          <h2 className="font-semibold mb-1">Enter scores</h2>
+          <h2 className="font-semibold mb-1">Enter scores by hand</h2>
           <p className="text-xs text-slate-400 mb-3">
             Whole numbers 1 (worst) to 5 (best), based on real research — see the scale definitions on
             the <Link href="/scoring" className="underline">Scoring workspace</Link>. Leave a box blank
@@ -209,7 +301,7 @@ export default async function MarketDetailPage({
           cell it came from, how it was obtained, and its confidence level.
         </p>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[800px]">
+          <table className="w-full text-xs min-w-[1000px]">
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-200 bg-slate-50">
                 <th className="py-1.5 px-2 font-medium">Field</th>
@@ -219,6 +311,7 @@ export default async function MarketDetailPage({
                 <th className="py-1.5 px-2 font-medium">Cell</th>
                 <th className="py-1.5 px-2 font-medium">Method</th>
                 <th className="py-1.5 px-2 font-medium">Confidence</th>
+                <th className="py-1.5 px-2 font-medium">Note / reasoning</th>
                 <th className="py-1.5 px-2 font-medium">Imported</th>
               </tr>
             </thead>
@@ -232,6 +325,7 @@ export default async function MarketDetailPage({
                   <td className="py-1.5 px-2 font-mono">{p.source_ref}</td>
                   <td className="py-1.5 px-2">{p.method}</td>
                   <td className="py-1.5 px-2 max-w-[200px] break-words text-slate-500">{p.confidence}</td>
+                  <td className="py-1.5 px-2 max-w-[320px] break-words text-slate-500">{p.notes ?? "—"}</td>
                   <td className="py-1.5 px-2 whitespace-nowrap">{p.imported_at?.slice(0, 10)}</td>
                 </tr>
               ))}
