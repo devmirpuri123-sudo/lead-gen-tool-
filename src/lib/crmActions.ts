@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { parseCsv, cleanCell } from "@/lib/csv";
 import { checkDuplicate, normalizeName, type ExistingCompany } from "@/lib/dedupe";
 import { LEAD_STATUSES, COMPANY_TYPES, EMAIL_RE } from "@/lib/pipeline";
+import { requireUser } from "@/lib/auth";
 
 const SOURCE_APP = "Lead Engine app";
 const MANUAL_CONF = "Manually entered — human judgement";
@@ -59,6 +60,7 @@ const COMPANY_FIELDS = ["name", "website", "company_type", "description", "notes
 
 // ---------------------------------------------------------------------------
 export async function createCompany(formData: FormData) {
+  await requireUser();
   const back = "/companies/new";
   const db = getDb();
   const who = requireName(formData, back);
@@ -122,6 +124,7 @@ export async function createCompany(formData: FormData) {
 }
 
 export async function updateCompany(formData: FormData) {
+  await requireUser();
   const id = Number(formData.get("company_id"));
   const back = `/companies/${id}`;
   const db = getDb();
@@ -174,6 +177,7 @@ export async function updateCompany(formData: FormData) {
 
 // ---------------------------------------------------------------------------
 export async function createContact(formData: FormData) {
+  await requireUser();
   const companyId = Number(formData.get("company_id"));
   const back = `/companies/${companyId}`;
   const db = getDb();
@@ -250,6 +254,7 @@ function createLeadRow(
 }
 
 export async function createLead(formData: FormData) {
+  await requireUser();
   const companyId = Number(formData.get("company_id"));
   const back = `/companies/${companyId}`;
   const db = getDb();
@@ -276,6 +281,7 @@ export async function createLead(formData: FormData) {
 }
 
 export async function updateLeadStatus(formData: FormData) {
+  await requireUser();
   const leadId = Number(formData.get("lead_id"));
   const back = `/leads/${leadId}`;
   const db = getDb();
@@ -309,6 +315,7 @@ export async function updateLeadStatus(formData: FormData) {
 }
 
 export async function addLeadNote(formData: FormData) {
+  await requireUser();
   const leadId = Number(formData.get("lead_id"));
   const back = `/leads/${leadId}`;
   const db = getDb();
@@ -334,6 +341,7 @@ const CSV_COLUMNS = [
 ] as const;
 
 export async function importCompaniesCsv(formData: FormData) {
+  await requireUser();
   const back = "/companies/import";
   const db = getDb();
   const who = requireName(formData, back);

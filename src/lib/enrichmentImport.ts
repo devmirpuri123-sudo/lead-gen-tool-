@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { getDb } from "@/lib/db";
 import { checkDuplicate, normalizeName, type ExistingCompany } from "@/lib/dedupe";
 import { COMPANY_TYPES, EMAIL_RE } from "@/lib/pipeline";
+import { requireUser } from "@/lib/auth";
 
 const IMPORT_CONF = "Imported — unverified, requires human review";
 
@@ -130,6 +131,7 @@ interface Report {
 }
 
 export async function importEnrichmentXlsx(formData: FormData) {
+  await requireUser();
   const db = getDb();
   const who = String(formData.get("entered_by") ?? "").trim().slice(0, 60);
   if (!who) fail("Please enter your name — every import is recorded with who ran it and when.");

@@ -211,3 +211,35 @@ CREATE INDEX IF NOT EXISTS idx_contacts_company ON contacts(company_id);
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_research_entity ON research_sources(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_research_field ON research_sources(entity_type, entity_id, field_name);
+
+-- ---------------------------------------------------------------------------
+-- Access control. Added so the app can be hosted for the team rather than run
+-- on one laptop. Every page, action and export is gated on a valid session.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL UNIQUE,          -- stored lower-cased; the login identifier
+  name TEXT NOT NULL,                  -- shown on records this person creates
+  password_hash TEXT NOT NULL,         -- scrypt; never a reversible form
+  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin','member')),
+  is_active INTEGER NOT NULL DEFAULT 1,
+  must_change_password INTEGER NOT NULL DEFAULT 0,
+  failed_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT,                   -- ISO timestamp; throttles password guessing
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by TEXT,
+  last_login_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,         -- SHA-256 of the cookie value, never the value itself
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+  user_agent TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions(expires_at);

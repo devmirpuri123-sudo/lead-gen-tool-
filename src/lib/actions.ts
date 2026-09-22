@@ -6,6 +6,7 @@ import { getDb } from "@/lib/db";
 import { loadScoringConfig, computeScore, recomputeAllMarkets } from "@/lib/scoring";
 import { getMarket } from "@/lib/queries";
 import { suggestScores } from "@/lib/scoreSuggestions";
+import { requireUser } from "@/lib/auth";
 
 const SOURCE_APP = "Lead Engine app";
 
@@ -22,6 +23,7 @@ function parseScoreField(raw: FormDataEntryValue | null): number | null | "inval
 }
 
 export async function saveMarketScores(formData: FormData) {
+  await requireUser();
   const id = Number(formData.get("market_id"));
   const db = getDb();
   const market = db
@@ -109,6 +111,7 @@ export async function saveMarketScores(formData: FormData) {
 }
 
 export async function updateScoringConfig(formData: FormData) {
+  await requireUser();
   const back = "/settings/scoring";
   const db = getDb();
 
@@ -268,6 +271,7 @@ function applySuggestions(marketIds: number[], who: string, note: string): { sco
 
 /** Accept the suggested scores for one market. */
 export async function acceptSuggestedScores(formData: FormData) {
+  await requireUser();
   const id = Number(formData.get("market_id"));
   const back = `/markets/${id}`;
   const who = String(formData.get("accepted_by") ?? "").trim().slice(0, 60);
@@ -296,6 +300,7 @@ export async function acceptSuggestedScores(formData: FormData) {
 
 /** Accept suggestions for many markets at once (the bulk screen). */
 export async function acceptSuggestedScoresBulk(formData: FormData) {
+  await requireUser();
   const back = "/scoring/suggestions";
   const who = String(formData.get("accepted_by") ?? "").trim().slice(0, 60);
   if (!who) {

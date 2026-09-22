@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.github
+.claude
+tool-results
+npm-debug.log
+*.tsbuildinfo
+
+# The live database is never baked into the image — it belongs on the mounted
+# disk. The source workbooks under data/source ARE included, so a brand-new
+# host can load the 195 markets on first boot.
+data/app.db
+data/app.db-*
