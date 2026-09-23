@@ -2,8 +2,17 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 
-const DB_PATH = path.join(process.cwd(), "data", "app.db");
+// Where the database file lives. Defaults to data/app.db inside the project so
+// a laptop checkout keeps working unchanged. On a host, point DATABASE_PATH at a
+// persistent disk (e.g. /data/app.db) so the data survives restarts and redeploys.
+const DB_PATH = process.env.DATABASE_PATH?.trim()
+  ? path.resolve(process.env.DATABASE_PATH.trim())
+  : path.join(process.cwd(), "data", "app.db");
 const SCHEMA_PATH = path.join(process.cwd(), "src", "lib", "db", "schema.sql");
+
+export function databasePath(): string {
+  return DB_PATH;
+}
 
 let db: Database.Database | null = null;
 

@@ -23,7 +23,11 @@ import path from "node:path";
 const ROOT = process.cwd();
 const SOURCE_FILE = path.join(ROOT, "data", "source", "Countries_by_Continent.xlsx");
 const SOURCE_NAME = "Countries_by_Continent.xlsx";
-const DB_PATH = path.join(ROOT, "data", "app.db");
+// Honours DATABASE_PATH so the same importer works on a laptop and on a host
+// where the database lives on a mounted disk.
+const DB_PATH = process.env.DATABASE_PATH?.trim()
+  ? path.resolve(process.env.DATABASE_PATH.trim())
+  : path.join(ROOT, "data", "app.db");
 const SCHEMA_PATH = path.join(ROOT, "src", "lib", "db", "schema.sql");
 
 const MAIN_SHEET = "Countries by Continent";

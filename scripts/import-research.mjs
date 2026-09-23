@@ -19,7 +19,9 @@ import Database from "better-sqlite3";
 const args = process.argv.slice(2);
 const overwrite = args.includes("--overwrite");
 const file = args.find((a) => !a.startsWith("--")) ?? "data/research/europe-market-research.csv";
-const DB_PATH = path.join(process.cwd(), "data", "app.db");
+const DB_PATH = process.env.DATABASE_PATH?.trim()
+  ? path.resolve(process.env.DATABASE_PATH.trim())
+  : path.join(process.cwd(), "data", "app.db");
 
 if (!fs.existsSync(file)) {
   console.error(`Research file not found: ${file}`);

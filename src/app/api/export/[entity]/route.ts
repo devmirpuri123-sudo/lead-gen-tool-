@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import * as XLSX from "xlsx";
+import { getCurrentUser } from "@/lib/auth";
 import { exportRows, toCsv, type ExportEntity } from "@/lib/exportData";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,15 @@ export const dynamic = "force-dynamic";
 const ENTITIES: ExportEntity[] = ["markets", "companies", "contacts", "leads"];
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ entity: string }> }) {
+  // Exports carry the full contact list, so this endpoint is gated like the rest
+  // of the app. A plain 401 rather than a redirect, so a stale download link
+  // fails visibly instead of returning a login page saved as a .csv file.
+  if (!(await getCurrentUser())) {
+    return new Response("Not signed in. Open the Lead Engine, sign in, and start the download again.", {
+      status: 401,
+    });
+  }
+
   const { entity } = await params;
   if (!ENTITIES.includes(entity as ExportEntity)) {
     return new Response("Unknown export. Use one of: " + ENTITIES.join(", "), { status: 404 });

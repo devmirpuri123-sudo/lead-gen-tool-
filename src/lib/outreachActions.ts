@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/lib/db";
 import { getTemplate, findPlaceholders } from "@/lib/outreachTemplates";
+import { requireUser } from "@/lib/auth";
 
 function fail(path: string, message: string): never {
   redirect(`${path}${path.includes("?") ? "&" : "?"}error=${encodeURIComponent(message)}`);
@@ -54,6 +55,7 @@ function blockDoNotContact(status: string | null | undefined, back: string) {
 }
 
 export async function generateDraft(formData: FormData) {
+  await requireUser();
   const leadId = Number(formData.get("lead_id"));
   const back = `/leads/${leadId}`;
   const db = getDb();
@@ -90,6 +92,7 @@ export async function generateDraft(formData: FormData) {
 }
 
 export async function updateDraft(formData: FormData) {
+  await requireUser();
   const draftId = Number(formData.get("draft_id"));
   const back = `/outreach/${draftId}`;
   const db = getDb();
@@ -113,6 +116,7 @@ export async function updateDraft(formData: FormData) {
 }
 
 export async function approveDraft(formData: FormData) {
+  await requireUser();
   const draftId = Number(formData.get("draft_id"));
   const back = `/outreach/${draftId}`;
   const db = getDb();
@@ -139,6 +143,7 @@ export async function approveDraft(formData: FormData) {
 }
 
 export async function revertDraft(formData: FormData) {
+  await requireUser();
   const draftId = Number(formData.get("draft_id"));
   const back = `/outreach/${draftId}`;
   const db = getDb();
@@ -158,6 +163,7 @@ export async function revertDraft(formData: FormData) {
 }
 
 export async function markDraftSent(formData: FormData) {
+  await requireUser();
   const draftId = Number(formData.get("draft_id"));
   const back = `/outreach/${draftId}`;
   const db = getDb();
@@ -202,6 +208,7 @@ export async function markDraftSent(formData: FormData) {
 }
 
 export async function discardDraft(formData: FormData) {
+  await requireUser();
   const draftId = Number(formData.get("draft_id"));
   const back = `/outreach/${draftId}`;
   const db = getDb();
@@ -222,6 +229,7 @@ export async function discardDraft(formData: FormData) {
 
 // --- reminders -------------------------------------------------------------
 export async function createReminder(formData: FormData) {
+  await requireUser();
   const leadId = Number(formData.get("lead_id"));
   const back = `/leads/${leadId}`;
   const db = getDb();
@@ -242,6 +250,7 @@ export async function createReminder(formData: FormData) {
 }
 
 export async function completeReminder(formData: FormData) {
+  await requireUser();
   const activityId = Number(formData.get("activity_id"));
   const backTo = String(formData.get("back") ?? "/outreach");
   const db = getDb();

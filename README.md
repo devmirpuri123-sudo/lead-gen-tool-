@@ -26,9 +26,45 @@ npm run import:workbook  # load data/source/Countries_by_Continent.xlsx into the
 npm run dev              # start the app, then open http://localhost:3000
 ```
 
+The first page you see asks you to create an account — see **Access** below.
+
 The database is a single file, `data/app.db`. It is not stored in git — the
 import command rebuilds it from the source workbook at any time. The original
 workbook in `data/source/` is read-only and is never modified.
+
+## Hosting it for the team
+
+A private address like `http://192.168.1.47:3000` only exists inside one WiFi
+network and can never be reached from outside it. To give the team real access,
+see **[DEPLOYMENT.md](DEPLOYMENT.md)** — a step-by-step guide written for a
+non-technical reader.
+
+In short: the app ships with a `Dockerfile`, keeps its database wherever
+`DATABASE_PATH` points (put that on a mounted disk so it survives restarts), and
+loads the 195 markets from the source workbook automatically the first time it
+starts against an empty database.
+
+## Access
+
+The engine holds named individuals' work contact details, most of them in the
+EU. That is personal data, so nothing is readable without signing in.
+
+- **Every page, every server action and the export endpoint require a valid
+  session.** There is no anonymous read path.
+- **First run**: with no accounts in the database, the app shows a one-time
+  setup page that creates the first administrator. Set a `SETUP_TOKEN`
+  environment variable to require a code on that page — recommended for a
+  hosted deployment, where the address is reachable before you have claimed it.
+- **Passwords** are stored as scrypt hashes and cannot be read back by anyone,
+  including an administrator. A reset is the only route. Minimum 12 characters;
+  eight failed attempts locks an account for 15 minutes.
+- **Sessions** are random 256-bit tokens in an HttpOnly cookie; the database
+  stores only a SHA-256 of the token, so a copy of the database yields no live
+  sessions. They expire after 14 days of inactivity.
+- **Administrators** add and remove people at `/settings/team`. Removing access
+  signs that person out of every browser immediately. Their name stays on the
+  scores, notes and approvals they entered — the audit trail is never rewritten.
+- The app can never remove its own last active administrator.
 
 ## What exists so far (Phase 1)
 
