@@ -104,6 +104,17 @@ You get an address like `lead-gen-tool-production.up.railway.app`. That is your
 dashboard, reachable from anywhere in the world. It is served over HTTPS, so
 passwords travel encrypted.
 
+**Then check the port shown under the domain.** The host hands the app a port of
+its own — usually **8080** — and the app obeys it. The domain must point at that
+same port, or the address hangs forever with nothing to answer it. The
+`Dockerfile` says 3000, but that is only a default for running it on a laptop:
+the host's own value wins, and the domain must follow the host, not the file.
+
+To check, open the deploy log and find the line reading `Network:
+http://0.0.0.0:<port>`. That number is where the app really is. If the domain
+shows anything else, click the pencil icon beside it and change it to match. It
+takes effect in seconds — no rebuild.
+
 Wait for the build to go green, then open the address.
 
 ## Step 6 — Create your account (do this immediately)
@@ -200,6 +211,12 @@ untouched by a redeploy.
 Open the **Deployments** tab and read the log from the bottom up; the real error
 is usually the last few lines. The most common cause is a missing volume at
 `/data`.
+
+**The address hangs forever and never loads, but the deployment says Active** —
+almost always the domain pointing at the wrong port. Open the deploy log, find
+`Network: http://0.0.0.0:<port>`, and make the domain's port match it (Step 5).
+A deployment can be perfectly healthy while the front door points at an empty
+room.
 
 **"The Dockerfile failed validation"** — Railway checked the file and refused it
 before running anything, so this is never a problem with your data or settings.
