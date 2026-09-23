@@ -201,6 +201,12 @@ Open the **Deployments** tab and read the log from the bottom up; the real error
 is usually the last few lines. The most common cause is a missing volume at
 `/data`.
 
+**"The Dockerfile failed validation"** — Railway checked the file and refused it
+before running anything, so this is never a problem with your data or settings.
+Railway rejects a `VOLUME` instruction outright, because it manages disks itself.
+Do not add one back to the `Dockerfile`; attach the disk in **Settings → Volumes**
+instead.
+
 **Markets page is empty** — the first-boot data load did not run. Check the
 deploy log for a line beginning `[startup]`. It tells you either how many
 markets it found or that it was loading them.
