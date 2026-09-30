@@ -30,17 +30,54 @@ function marketCount() {
   }
 }
 
+function researchedCount() {
+  if (!fs.existsSync(DB_PATH)) return 0;
+  const db = new Database(DB_PATH, { readonly: true });
+  try {
+    return db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM markets WHERE local_competition IS NOT NULL AND TRIM(local_competition) <> ''`
+      )
+      .get().n;
+  } catch {
+    return 0;
+  } finally {
+    db.close();
+  }
+}
+
+function run(script, description) {
+  const result = spawnSync(process.execPath, [script], {
+    stdio: ["ignore", "ignore", "inherit"],
+    env: { ...process.env, DATABASE_PATH: DB_PATH },
+  });
+  if (result.status !== 0) {
+    console.error(`[startup] ${description} failed. The app will still start, but some data will be missing.`);
+    return false;
+  }
+  return true;
+}
+
 const existing = marketCount();
 if (existing > 0) {
   console.log(`[startup] Database ready at ${DB_PATH} — ${existing} markets already loaded.`);
 } else {
   console.log(`[startup] Empty database at ${DB_PATH} — loading markets from the source workbook.`);
-  const result = spawnSync(process.execPath, ["scripts/import-workbook.mjs"], {
-    stdio: "inherit",
-    env: { ...process.env, DATABASE_PATH: DB_PATH },
-  });
-  if (result.status !== 0) {
-    console.error("[startup] Could not load the source workbook. The app will still start, but");
-    console.error("[startup] the Markets pages will be empty until this is fixed.");
+  if (!run("scripts/import-workbook.mjs", "Loading the source workbook")) {
+    console.error("[startup] The Markets pages will be empty until this is fixed.");
   }
+}
+
+// The researched figures — import value, duty and local competition — live in a
+// separate file from the workbook, and markets cannot be scored without the
+// competition rating. Run on every boot, not only the first: the importer never
+// overwrites a value that is already there, so anything entered in the app is
+// safe, and an existing deployment picks the research up on its next restart.
+const before = researchedCount();
+run("scripts/import-research.mjs", "Loading researched market figures");
+const after = researchedCount();
+if (after > before) {
+  console.log(`[startup] Researched figures loaded — ${after} markets now have a local competition rating (was ${before}).`);
+} else {
+  console.log(`[startup] Researched figures already present — ${after} markets have a local competition rating.`);
 }

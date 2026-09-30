@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getDb } from "@/lib/db";
+import { getDb, UNVERIFIED_LABEL } from "@/lib/db";
 import { loadScoringConfig, computeScore, recomputeAllMarkets } from "@/lib/scoring";
 import { getMarket } from "@/lib/queries";
 import { suggestScores } from "@/lib/scoreSuggestions";
@@ -322,4 +322,90 @@ export async function acceptSuggestedScoresBulk(formData: FormData) {
       }. Every one is editable on its own market page.`
     )}`
   );
+}
+
+
+/**
+ * Records the Local competition rating for one or more markets.
+ *
+ * This is the fact the Competition score is derived from, and without it a
+ * market cannot be scored at all. It used to be settable only by re-running an
+ * import script, which is impossible once the engine is hosted — so it is
+ * entered here instead, with the same provenance trail as any other value: the
+ * old value, the new one, who recorded it, when, and the basis they gave.
+ *
+ * It records an observation, not a score. The Competition score still follows
+ * from it, and still has to be accepted by a named person.
+ */
+export async function recordLocalCompetition(formData: FormData) {
+  await requireUser();
+  const db = getDb();
+  const back = String(formData.get("back") ?? "/scoring/suggestions");
+
+  const who = String(formData.get("recorded_by") ?? "").trim().slice(0, 60);
+  if (!who) fail(back, "Please enter your name — every recorded fact carries who recorded it and when.");
+  const basis = String(formData.get("basis") ?? "").trim().slice(0, 500);
+
+  // Rows arrive as competition_<market id>; blanks mean "leave this one alone".
+  const entries: { id: number; value: string }[] = [];
+  for (const [key, raw] of formData.entries()) {
+    if (!key.startsWith("competition_")) continue;
+    const id = Number(key.slice("competition_".length));
+    const value = String(raw ?? "").trim();
+    if (!Number.isInteger(id) || value === "") continue;
+    if (!["High", "Medium", "Low"].includes(value)) {
+      fail(back, `"${value}" is not one of High, Medium or Low.`);
+    }
+    entries.push({ id, value });
+  }
+
+  if (entries.length === 0) {
+    fail(back, "Nothing to save — choose High, Medium or Low for at least one market.");
+  }
+
+  const now = new Date().toISOString();
+  const insertProv = db.prepare(
+    `INSERT INTO research_sources (entity_type, entity_id, field_name, original_value, normalised_value, source_file, worksheet, source_ref, method, confidence, notes, imported_at)
+     VALUES ('market', @id, 'local_competition', @orig, @val, @source, NULL, NULL, 'researched', @confidence, @notes, @now)`
+  );
+  const update = db.prepare(
+    `UPDATE markets SET local_competition = ?, last_reviewed_at = ?, updated_at = ? WHERE id = ?`
+  );
+  const read = db.prepare(`SELECT id, country, local_competition FROM markets WHERE id = ?`);
+
+  let saved = 0;
+  const unchanged: string[] = [];
+  const tx = db.transaction(() => {
+    for (const { id, value } of entries) {
+      const market = read.get(id) as { id: number; country: string; local_competition: string | null } | undefined;
+      if (!market) continue;
+      const before = (market.local_competition ?? "").trim();
+      if (before === value) {
+        unchanged.push(market.country);
+        continue;
+      }
+      insertProv.run({
+        id: market.id,
+        orig: before || null,
+        val: value,
+        source: SOURCE_APP,
+        confidence: basis
+          ? "Researched — basis recorded by the person who entered it"
+          : UNVERIFIED_LABEL,
+        notes: `Recorded by ${who}${basis ? ` — ${basis}` : " — no basis given; treat as unverified"}`,
+        now,
+      });
+      update.run(value, now, now, market.id);
+      saved++;
+    }
+  });
+  tx();
+
+  for (const p of ["/", "/markets", "/scoring", "/scoring/suggestions"]) revalidatePath(p);
+
+  const parts = [`Recorded local competition for ${saved} market${saved === 1 ? "" : "s"}.`];
+  if (unchanged.length) parts.push(`${unchanged.length} already had the same rating and were left alone.`);
+  if (saved > 0) parts.push("Their Competition scores can now be suggested — review them above.");
+  if (!basis) parts.push("No basis was given, so each one is marked unverified until someone confirms it.");
+  redirect(`${back}?saved=${encodeURIComponent(parts.join(" "))}`);
 }
