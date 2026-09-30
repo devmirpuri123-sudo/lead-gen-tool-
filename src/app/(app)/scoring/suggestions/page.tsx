@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { listMarkets, getScorerNames } from "@/lib/queries";
 import { suggestScores } from "@/lib/scoreSuggestions";
-import { acceptSuggestedScoresBulk } from "@/lib/actions";
+import { acceptSuggestedScoresBulk, recordLocalCompetition } from "@/lib/actions";
 import { tierBadgeClass } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,10 @@ export default async function BulkSuggestionsPage({
     .filter((r) => (onlyUnscored ? r.market.priority_tier === "Not scored" : true));
   const ready = rows.filter((r) => r.complete);
   const blocked = rows.filter((r) => !r.complete);
+  // Markets held up by the competition rating alone — the ones the form below can unblock.
+  const onlyCompetitionMissing = blocked.filter(
+    (r) => r.suggestions.filter((s) => s.score === null).every((s) => s.key === "competition_score")
+  ).length;
 
   return (
     <div className="space-y-4">
@@ -159,37 +163,109 @@ export default async function BulkSuggestionsPage({
           <h2 className="font-semibold mb-1">
             Needs research first: {blocked.length} market{blocked.length === 1 ? "" : "s"}
           </h2>
-          <p className="text-xs text-slate-400 mb-3">
+          <p className="text-xs text-slate-500 mb-1">
             These cannot be suggested yet. Rather than guess, the system names exactly what is missing.
           </p>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
-              <thead>
-                <tr className="text-left text-slate-500 border-b border-slate-200 bg-slate-50">
-                  <th className="py-1.5 px-2 font-medium">Country</th>
-                  <th className="py-1.5 px-2 font-medium">Suggested so far</th>
-                  <th className="py-1.5 px-2 font-medium">Still needed</th>
-                </tr>
-              </thead>
-              <tbody>
-                {blocked.map(({ market, suggestions }) => (
-                  <tr key={market.id} className="border-b border-slate-100 last:border-0">
-                    <td className="py-1.5 px-2 whitespace-nowrap">
-                      <Link href={`/markets/${market.id}#score`} className="hover:underline">
-                        {market.country}
-                      </Link>
-                    </td>
-                    <td className="py-1.5 px-2 font-mono whitespace-nowrap">
-                      {suggestions.map((s) => s.score ?? "—").join(" / ")}
-                    </td>
-                    <td className="py-1.5 px-2 text-xs text-amber-700">
-                      {suggestions.filter((s) => s.missing).map((s) => s.missing).join("; ")}
-                    </td>
+          {onlyCompetitionMissing > 0 && (
+            <p className="text-xs text-slate-600 mb-3">
+              For {onlyCompetitionMissing} of them, local competition is the only thing standing in the
+              way. Record what you know below — <strong>leave a market blank if you do not know</strong>,
+              rather than guessing — and their scores become suggestible straight away.
+            </p>
+          )}
+
+          <form action={recordLocalCompetition} className="space-y-3">
+            <input type="hidden" name="back" value="/scoring/suggestions" />
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead>
+                  <tr className="text-left text-slate-500 border-b border-slate-200 bg-slate-50">
+                    <th className="py-1.5 px-2 font-medium">Country</th>
+                    <th className="py-1.5 px-2 font-medium">Suggested so far</th>
+                    <th className="py-1.5 px-2 font-medium">Still needed</th>
+                    <th className="py-1.5 px-2 font-medium">Local competition</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {blocked.map(({ market, suggestions }) => {
+                    const needsCompetition = suggestions.some(
+                      (s) => s.key === "competition_score" && s.score === null
+                    );
+                    return (
+                      <tr key={market.id} className="border-b border-slate-100 last:border-0">
+                        <td className="py-1.5 px-2 whitespace-nowrap">
+                          <Link href={`/markets/${market.id}#score`} className="hover:underline">
+                            {market.country}
+                          </Link>
+                        </td>
+                        <td className="py-1.5 px-2 font-mono whitespace-nowrap">
+                          {suggestions.map((s) => s.score ?? "—").join(" / ")}
+                        </td>
+                        <td className="py-1.5 px-2 text-xs text-amber-700">
+                          {suggestions.filter((s) => s.missing).map((s) => s.missing).join("; ")}
+                        </td>
+                        <td className="py-1.5 px-2">
+                          {needsCompetition ? (
+                            <select
+                              name={`competition_${market.id}`}
+                              defaultValue=""
+                              className="border border-slate-300 rounded px-2 py-1 text-sm"
+                              aria-label={`Local competition in ${market.country}`}
+                            >
+                              <option value="">Don&apos;t know yet</option>
+                              <option value="Low">Low — little local manufacturing</option>
+                              <option value="Medium">Medium — some local manufacturing</option>
+                              <option value="High">High — strong domestic industry</option>
+                            </select>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t border-slate-200 pt-3 flex flex-wrap gap-3 items-end">
+              <label className="block">
+                <span className="text-xs text-slate-600">Your name</span>
+                <input
+                  name="recorded_by"
+                  list="competition-recorders"
+                  maxLength={60}
+                  required
+                  className="mt-1 block border border-slate-300 rounded px-2 py-1.5 text-sm w-56"
+                />
+                <datalist id="competition-recorders">
+                  {people.map((p) => (
+                    <option key={p} value={p} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="block flex-1 min-w-[16rem]">
+                <span className="text-xs text-slate-600">Where this came from</span>
+                <input
+                  name="basis"
+                  maxLength={500}
+                  placeholder="e.g. trade association directory, distributor call, site visit"
+                  className="mt-1 block w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+                />
+              </label>
+              <button
+                type="submit"
+                className="bg-slate-900 text-white rounded px-4 py-2 text-sm hover:bg-slate-800"
+              >
+                Record local competition
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">
+              This records an observation, not a score. Each one is saved with your name, the date and
+              the basis you give. Without a basis it is filed as unverified. The Competition score is
+              then suggested from it and still has to be accepted by a person.
+            </p>
+          </form>
         </section>
       )}
     </div>

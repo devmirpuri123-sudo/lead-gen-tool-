@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMarket, getMarketProvenance, getScorerNames } from "@/lib/queries";
 import { loadScoringConfig, explainScore } from "@/lib/scoring";
-import { saveMarketScores, acceptSuggestedScores } from "@/lib/actions";
+import { saveMarketScores, acceptSuggestedScores, recordLocalCompetition } from "@/lib/actions";
 import { suggestScores, confidencePhrase } from "@/lib/scoreSuggestions";
 import { fmtNumber, fmtUsd, orUnknown, tierBadgeClass, UNKNOWN_LABEL } from "@/lib/format";
 
@@ -94,6 +94,59 @@ export default async function MarketDetailPage({
             The workbook deliberately leaves these blank — populate from trade data and national
             tariff schedules, not estimates.
           </p>
+
+          <form action={recordLocalCompetition} className="mt-3 border-t border-amber-200 pt-3 space-y-2">
+            <input type="hidden" name="back" value={`/markets/${market.id}`} />
+            <p className="text-xs text-amber-800">
+              Local competition is the one fact the Competition score is built from. Record it here
+              when you have a real source — leave it alone if you do not.
+            </p>
+            <div className="flex flex-wrap gap-2 items-end">
+              <label className="block">
+                <span className="text-xs text-slate-600">Local competition</span>
+                <select
+                  name={`competition_${market.id}`}
+                  defaultValue=""
+                  className="mt-1 block border border-slate-300 rounded px-2 py-1.5 text-sm bg-white"
+                >
+                  <option value="">Leave unchanged</option>
+                  <option value="Low">Low — little local manufacturing</option>
+                  <option value="Medium">Medium — some local manufacturing</option>
+                  <option value="High">High — strong domestic industry</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs text-slate-600">Your name</span>
+                <input
+                  name="recorded_by"
+                  list="market-researchers"
+                  maxLength={60}
+                  required
+                  className="mt-1 block border border-slate-300 rounded px-2 py-1.5 text-sm w-44 bg-white"
+                />
+                <datalist id="market-researchers">
+                  {scorers.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </label>
+              <label className="block flex-1 min-w-[14rem]">
+                <span className="text-xs text-slate-600">Where this came from</span>
+                <input
+                  name="basis"
+                  maxLength={500}
+                  placeholder="e.g. trade association directory, distributor call"
+                  className="mt-1 block w-full border border-slate-300 rounded px-2 py-1.5 text-sm bg-white"
+                />
+              </label>
+              <button
+                type="submit"
+                className="bg-amber-700 text-white rounded px-3 py-2 text-sm hover:bg-amber-800"
+              >
+                Record
+              </button>
+            </div>
+          </form>
         </section>
 
         <section className="bg-white rounded-lg border border-slate-200 p-4">
